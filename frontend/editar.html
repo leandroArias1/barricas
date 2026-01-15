@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Editar Barrica</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    form {
+      background: #fff;
+      padding: 15px;
+      border-radius: 6px;
+      max-width: 400px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      padding: 6px;
+      margin-top: 4px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px;
+      width: 100%;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .info {
+      margin-bottom: 15px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      max-width: 400px;
+    }
+    .success {
+      margin-top: 15px;
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Editar Barrica</h1>
+
+  <div class="info" id="infoBarrica">
+    Cargando barrica...
+  </div>
+
+  <form id="formEditar" style="display:none;">
+    <label>Número de Barrica
+      <input type="text" id="numero_barrica" />
+    </label>
+
+    <label>Número de Lote
+      <input type="text" id="numero_lote" />
+    </label>
+
+    <label>Fila
+      <input type="text" id="fila" />
+    </label>
+
+    <label>Uva
+      <input type="text" id="uva" />
+    </label>
+
+    <label>Año
+      <input type="text" id="anio" />
+    </label>
+
+    <hr>
+
+    <label>Acción realizada
+      <select id="accion" required>
+        <option value="">Seleccionar acción</option>
+        <option value="Movimiento de barrica">Movimiento de barrica</option>
+        <option value="Agregado de producto">Agregado de producto</option>
+        <option value="Mantenimiento">Mantenimiento</option>
+      </select>
+    </label>
+
+    <label>Operario
+      <input type="text" id="operario" placeholder="Nombre del operario" required />
+    </label>
+
+    <button type="submit">Guardar cambios</button>
+  </form>
+
+  <div class="success" id="mensaje"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    if (!id) {
+      document.getElementById('infoBarrica').textContent = 'ID de barrica no especificado';
+      throw new Error('ID no encontrado en la URL');
+    }
+
+    const info = document.getElementById('infoBarrica');
+    const form = document.getElementById('formEditar');
+    const mensaje = document.getElementById('mensaje');
+
+    // 1️⃣ Obtener datos de la barrica
+    fetch(`http://localhost:3000/barricas/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        info.innerHTML = `
+          <strong>Barrica ID:</strong> ${data.barrica.id}<br>
+          <strong>Última acción:</strong> ${
+            data.ultima_accion
+              ? data.ultima_accion.accion + ' (' + data.ultima_accion.operario + ')'
+              : 'Sin acciones registradas'
+          }
+        `;
+
+        document.getElementById('numero_barrica').value = data.barrica.numero_barrica || '';
+        document.getElementById('numero_lote').value = data.barrica.numero_lote || '';
+        document.getElementById('fila').value = data.barrica.fila || '';
+        document.getElementById('uva').value = data.barrica.uva || '';
+        document.getElementById('anio').value = data.barrica.anio || '';
+
+        form.style.display = 'block';
+      })
+      .catch(err => {
+        info.textContent = 'Error al cargar la barrica';
+        console.error(err);
+      });
+
+    // 2️⃣ Guardar cambios
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const body = {
+        numero_barrica: document.getElementById('numero_barrica').value,
+        numero_lote: document.getElementById('numero_lote').value,
+        fila: document.getElementById('fila').value,
+        uva: document.getElementById('uva').value,
+        anio: document.getElementById('anio').value,
+        accion: document.getElementById('accion').value,
+        operario: document.getElementById('operario').value
+      };
+
+      const res = await fetch(`http://localhost:3000/barricas/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.error || 'Error al guardar cambios');
+        return;
+      }
+
+      mensaje.textContent = 'Cambios guardados correctamente';
+    });
+  </script>
+
+</body>
+</html>
