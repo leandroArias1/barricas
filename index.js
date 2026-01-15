@@ -190,79 +190,83 @@ const ExcelJS = require('exceljs');
 
 app.get('/excel/barricas', async (req, res) => {
   try {
+    const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Barricas');
 
-    // Columnas del Excel
     sheet.columns = [
       { header: 'ID', key: 'id', width: 10 },
-      { header: 'Número Barrica', key: 'numero_barrica', width: 18 },
-      { header: 'Número Lote', key: 'numero_lote', width: 18 },
+      { header: 'Número Barrica', key: 'numero_barrica', width: 20 },
+      { header: 'Número Lote', key: 'numero_lote', width: 20 },
       { header: 'Fila', key: 'fila', width: 10 },
       { header: 'Uva', key: 'uva', width: 15 },
       { header: 'Año', key: 'anio', width: 10 },
       { header: 'Última Acción', key: 'accion', width: 25 },
       { header: 'Operario', key: 'operario', width: 20 },
-      { header: 'Fecha Acción', key: 'fecha', width: 20 }
+      { header: 'Fecha', key: 'fecha', width: 20 }
     ];
 
     const query = `
-  SELECT
-    b.id,
-    b.numero_barrica,
-    b.numero_lote,
-    b.fila,
-    b.uva,
-    b.anio,
-    (
-      SELECT a.accion
-      FROM acciones a
-      WHERE a.barrica_id = b.id
-      ORDER BY a.fecha DESC
-      LIMIT 1
-    ) AS accion,
-    (
-      SELECT a.operario
-      FROM acciones a
-      WHERE a.barrica_id = b.id
-      ORDER BY a.fecha DESC
-      LIMIT 1
-    ) AS operario,
-    (
-      SELECT a.fecha
-      FROM acciones a
-      WHERE a.barrica_id = b.id
-      ORDER BY a.fecha DESC
-      LIMIT 1
-    ) AS fecha
-  FROM barricas b
-  ORDER BY b.id
-`;
+      SELECT
+        b.id,
+        b.numero_barrica,
+        b.numero_lote,
+        b.fila,
+        b.uva,
+        b.anio,
+        (
+          SELECT a.accion
+          FROM acciones a
+          WHERE a.barrica_id = b.id
+          ORDER BY a.fecha DESC
+          LIMIT 1
+        ) AS accion,
+        (
+          SELECT a.operario
+          FROM acciones a
+          WHERE a.barrica_id = b.id
+          ORDER BY a.fecha DESC
+          LIMIT 1
+        ) AS operario,
+        (
+          SELECT a.fecha
+          FROM acciones a
+          WHERE a.barrica_id = b.id
+          ORDER BY a.fecha DESC
+          LIMIT 1
+        ) AS fecha
+      FROM barricas b
+      ORDER BY b.id
+    `;
 
-
-    db.all(query, [], async (err, rows) => {
+    db.all(query, async (err, rows) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: 'Error al generar Excel' });
       }
 
-      rows.forEach(row => {
-        sheet.addRow(row);
-      });
+      rows.forEach(row => sheet.addRow(row));
 
-      const filePath = path.join(__dirname, 'excel', 'barricas.xlsx');
+      // 👇 Headers correctos para descarga
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="barricas.xlsx"'
+      );
 
-      await workbook.xlsx.writeFile(filePath);
-
-      res.download(filePath, 'barricas.xlsx');
+      // 👇 Enviar Excel directo al navegador
+      await workbook.xlsx.write(res);
+      res.end();
     });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error inesperado al generar Excel' });
+    res.status(500).json({ error: 'Error interno' });
   }
 });
-
 
 
 // 👇 SIEMPRE AL FINAL
