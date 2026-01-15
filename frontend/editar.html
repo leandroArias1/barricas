@@ -113,7 +113,7 @@
     const mensaje = document.getElementById('mensaje');
 
     // 1️⃣ Obtener datos de la barrica
-    fetch(`http://localhost:3000/barricas/${id}`)
+    fetch(`barricas/${id}`)
       .then(res => res.json())
       .then(data => {
         info.innerHTML = `
@@ -152,7 +152,7 @@
         operario: document.getElementById('operario').value
       };
 
-      const res = await fetch(`http://localhost:3000/barricas/${id}`, {
+      const res = await fetch(`/barricas/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
