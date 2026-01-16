@@ -14,11 +14,12 @@
     h1 {
       margin-bottom: 10px;
     }
-    form {
+    .info, form {
       background: #fff;
       padding: 15px;
       border-radius: 6px;
-      max-width: 400px;
+      max-width: 420px;
+      margin-bottom: 15px;
     }
     label {
       display: block;
@@ -31,22 +32,15 @@
     }
     button {
       margin-top: 15px;
-      padding: 10px;
+      padding: 12px;
       width: 100%;
       font-size: 16px;
       cursor: pointer;
     }
-    .info {
-      margin-bottom: 15px;
-      background: #fff;
-      padding: 10px;
-      border-radius: 6px;
-      max-width: 400px;
-    }
     .success {
-      margin-top: 15px;
       color: green;
       font-weight: bold;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -59,24 +53,17 @@
   </div>
 
   <form id="formEditar" style="display:none;">
-    <label>Número de Barrica
-      <input type="text" id="numero_barrica" />
-    </label>
-
-    <label>Número de Lote
-      <input type="text" id="numero_lote" />
+    <label>Sala
+      <select id="sala" required>
+        <option value="">Seleccionar sala</option>
+        <option value="1">Sala 1</option>
+        <option value="2">Sala 2</option>
+        <option value="3">Sala 3</option>
+      </select>
     </label>
 
     <label>Fila
-      <input type="text" id="fila" />
-    </label>
-
-    <label>Uva
-      <input type="text" id="uva" />
-    </label>
-
-    <label>Año
-      <input type="text" id="anio" />
+      <input type="text" id="fila" required />
     </label>
 
     <hr>
@@ -84,40 +71,54 @@
     <label>Acción realizada
       <select id="accion" required>
         <option value="">Seleccionar acción</option>
-        <option value="Movimiento de barrica">Movimiento de barrica</option>
-        <option value="Agregado de producto">Agregado de producto</option>
-        <option value="Mantenimiento">Mantenimiento</option>
+        <option value="Movimiento">Movimiento</option>
+        <option value="Adiciones">Adiciones</option>
+        <option value="Corrección SO2">Corrección SO2</option>
+        <option value="Trasiego">Trasiego</option>
+        <option value="Corte">Corte</option>
       </select>
     </label>
 
     <label>Operario
-      <input type="text" id="operario" placeholder="Nombre del operario" required />
+      <select id="operario" required>
+        <option value="">Seleccionar operario</option>
+        <option value="Ricardo">Ricardo</option>
+        <option value="Ema">Ema</option>
+        <option value="Vale">Vale</option>
+        <option value="Franco">Franco</option>
+        <option value="Bruno">Bruno</option>
+        <option value="Alex">Alex</option>
+        <option value="Nico">Nico</option>
+        <option value="Joaco">Joaco</option>
+      </select>
     </label>
 
     <button type="submit">Guardar cambios</button>
+    <div class="success" id="mensaje"></div>
   </form>
-
-  <div class="success" id="mensaje"></div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
 
-    if (!id) {
-      document.getElementById('infoBarrica').textContent = 'ID de barrica no especificado';
-      throw new Error('ID no encontrado en la URL');
-    }
-
     const info = document.getElementById('infoBarrica');
     const form = document.getElementById('formEditar');
     const mensaje = document.getElementById('mensaje');
 
-    // 1️⃣ Obtener datos de la barrica
-    fetch(`barricas/${id}`)
+    if (!id) {
+      info.textContent = 'ID de barrica no especificado';
+      throw new Error('ID no encontrado');
+    }
+
+    // 🔹 Cargar datos de la barrica
+    fetch(`/barricas/${id}`)
       .then(res => res.json())
       .then(data => {
         info.innerHTML = `
-          <strong>Barrica ID:</strong> ${data.barrica.id}<br>
+          <strong>Barrica:</strong> ${data.barrica.numero_barrica}<br>
+          <strong>Lote:</strong> ${data.barrica.lote}<br>
+          <strong>Sala:</strong> ${data.barrica.sala}<br>
+          <strong>Fila:</strong> ${data.barrica.fila}<br>
           <strong>Última acción:</strong> ${
             data.ultima_accion
               ? data.ultima_accion.accion + ' (' + data.ultima_accion.operario + ')'
@@ -125,38 +126,29 @@
           }
         `;
 
-        document.getElementById('numero_barrica').value = data.barrica.numero_barrica || '';
-        document.getElementById('numero_lote').value = data.barrica.numero_lote || '';
-        document.getElementById('fila').value = data.barrica.fila || '';
-        document.getElementById('uva').value = data.barrica.uva || '';
-        document.getElementById('anio').value = data.barrica.anio || '';
+        document.getElementById('sala').value = data.barrica.sala;
+        document.getElementById('fila').value = data.barrica.fila;
 
         form.style.display = 'block';
       })
-      .catch(err => {
+      .catch(() => {
         info.textContent = 'Error al cargar la barrica';
-        console.error(err);
       });
 
-    // 2️⃣ Guardar cambios
+    // 🔹 Guardar cambios
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const body = {
-        numero_barrica: document.getElementById('numero_barrica').value,
-        numero_lote: document.getElementById('numero_lote').value,
+        sala: parseInt(document.getElementById('sala').value),
         fila: document.getElementById('fila').value,
-        uva: document.getElementById('uva').value,
-        anio: document.getElementById('anio').value,
         accion: document.getElementById('accion').value,
         operario: document.getElementById('operario').value
       };
 
       const res = await fetch(`/barricas/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
