@@ -6,42 +6,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      padding: 20px;
-    }
+    :root {
+  --primary: #2f6f4e;
+  --primary-dark: #24563c;
+  --bg: #f4f6f5;
+  --card: #ffffff;
+  --text: #1f2933;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 20px;
+}
+
     h1 {
-      margin-bottom: 10px;
-    }
-    .info, form {
-      background: #fff;
-      padding: 15px;
-      border-radius: 6px;
-      max-width: 420px;
-      margin-bottom: 15px;
-    }
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+hr {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid #ddd;
+}
+
+
+    form, .info {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 420px;
+  margin: 0 auto 20px auto;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+}
+
     label {
-      display: block;
-      margin-top: 10px;
-    }
-    input, select {
-      width: 100%;
-      padding: 6px;
-      margin-top: 4px;
-    }
+  display: block;
+  margin-top: 14px;
+  font-weight: 600;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+}
+
     button {
-      margin-top: 15px;
-      padding: 12px;
-      width: 100%;
-      font-size: 16px;
-      cursor: pointer;
-    }
+  margin-top: 20px;
+  padding: 14px;
+  width: 100%;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--primary-dark);
+}
+
     .success {
-      color: green;
-      font-weight: bold;
-      margin-top: 10px;
-    }
+  margin-top: 12px;
+  color: var(--primary);
+  font-weight: bold;
+}
+
   </style>
 </head>
 <body>
@@ -159,7 +197,8 @@
         return;
       }
 
-      mensaje.textContent = 'Cambios guardados correctamente';
+      mensaje.textContent = 'Acción registrada correctamente';
+
     });
   </script>
 
