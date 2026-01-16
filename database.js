@@ -6,15 +6,16 @@ const db = new sqlite3.Database('./barricas.db', (err) => {
   } else {
     console.log('Base de datos SQLite conectada');
   }
-  db.serialize(() => {
+});
+
+db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS barricas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      numero_barrica TEXT,
-      numero_lote TEXT,
-      fila TEXT,
-      uva TEXT,
-      anio TEXT,
+      numero_barrica TEXT NOT NULL,
+      lote TEXT NOT NULL,
+      sala INTEGER NOT NULL,
+      fila TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -23,15 +24,13 @@ const db = new sqlite3.Database('./barricas.db', (err) => {
   db.run(`
     CREATE TABLE IF NOT EXISTS acciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      barrica_id INTEGER,
-      accion TEXT,
-      operario TEXT,
+      barrica_id INTEGER NOT NULL,
+      accion TEXT NOT NULL,
+      operario TEXT NOT NULL,
       fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (barrica_id) REFERENCES barricas(id)
     )
   `);
-});
-
 });
 
 module.exports = db;

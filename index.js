@@ -1,3 +1,4 @@
+const QRCode = require('qrcode');
 const express = require('express');
 const cors = require('cors');
 const db = require('./database');
@@ -26,37 +27,30 @@ app.get('/', (req, res) => {
 
 // ✅ ENDPOINT CREAR BARRICA
 app.post('/barricas', (req, res) => {
-  const {
-    numero_barrica,
-    numero_lote,
-    fila,
-    uva,
-    anio
-  } = req.body;
+  const { numero_barrica, lote, sala, fila } = req.body;
 
-  if (!numero_barrica || !numero_lote) {
+  if (!numero_barrica || !lote || !sala || !fila) {
     return res.status(400).json({
-      error: 'numero_barrica y numero_lote son obligatorios'
+      error: 'numero_barrica, lote, sala y fila son obligatorios'
     });
   }
 
   const query = `
-    INSERT INTO barricas (
-      numero_barrica,
-      numero_lote,
-      fila,
-      uva,
-      anio
-    ) VALUES (?, ?, ?, ?, ?)
-  `;
-
-  const params = [
+  INSERT INTO barricas (
     numero_barrica,
-    numero_lote,
-    fila,
-    uva,
-    anio
-  ];
+    lote,
+    sala,
+    fila
+  ) VALUES (?, ?, ?, ?)
+`;
+
+const params = [
+  numero_barrica,
+  lote,
+  sala,
+  fila
+];
+
 
   db.run(query, params, function (err) {
     if (err) {
@@ -69,12 +63,12 @@ app.post('/barricas', (req, res) => {
       barrica: {
         id: this.lastID,
         numero_barrica,
-        numero_lote,
-        fila,
-        uva,
-        anio
+        lote,
+        sala,
+        fila
       }
     });
+
   });
 });
 
@@ -122,11 +116,6 @@ app.put('/barricas/:id', (req, res) => {
   const { id } = req.params;
 
   const {
-    numero_barrica,
-    numero_lote,
-    fila,
-    uva,
-    anio,
     accion,
     operario
   } = req.body;
@@ -138,25 +127,16 @@ app.put('/barricas/:id', (req, res) => {
   }
 
   const updateQuery = `
-    UPDATE barricas
-    SET
-      numero_barrica = COALESCE(?, numero_barrica),
-      numero_lote = COALESCE(?, numero_lote),
-      fila = COALESCE(?, fila),
-      uva = COALESCE(?, uva),
-      anio = COALESCE(?, anio),
-      updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
+  UPDATE barricas
+  SET
+    sala = COALESCE(?, sala),
+    fila = COALESCE(?, fila),
+    updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`;
 
-  const updateParams = [
-    numero_barrica,
-    numero_lote,
-    fila,
-    uva,
-    anio,
-    id
-  ];
+const updateParams = [sala, fila, id];
+
 
   db.run(updateQuery, updateParams, function (err) {
     if (err) {
@@ -267,6 +247,27 @@ app.get('/excel/barricas', async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
+
+app.get('/qr/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const qrUrl = `${baseUrl}/editar?id=${id}`;
+
+  try {
+    const qrImage = await QRCode.toDataURL(qrUrl);
+
+    res.json({
+      id,
+      qrUrl,
+      qrImage
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al generar QR' });
+  }
+});
+
 
 
 // 👇 SIEMPRE AL FINAL

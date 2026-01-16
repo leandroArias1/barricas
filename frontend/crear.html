@@ -53,41 +53,42 @@
 
   <h1>Crear Barrica</h1>
 
-  <form id="formBarrica">
+  <form id="formCrear">
     <label>Número de Barrica
-      <input type="text" id="numero_barrica" required />
+      <input type="text" id="numero_barrica" placeholder="BBL001" required />
     </label>
 
-    <label>Número de Lote
-      <input type="text" id="numero_lote" required />
+    <label>Lote
+      <input type="text" id="lote" required />
+    </label>
+
+    <label>Sala
+      <select id="sala" required>
+        <option value="">Seleccionar sala</option>
+        <option value="1">Sala 1</option>
+        <option value="2">Sala 2</option>
+        <option value="3">Sala 3</option>
+      </select>
     </label>
 
     <label>Fila
-      <input type="text" id="fila" />
+      <input type="text" id="fila" placeholder="Ej: 15" required />
     </label>
 
-    <label>Uva
-      <input type="text" id="uva" />
-    </label>
-
-    <label>Año
-      <input type="text" id="anio" />
-    </label>
-
-    <button type="submit">Crear Barrica</button>
+    <button type="submit">Crear barrica</button>
   </form>
 
-  <div class="resultado" id="resultado" style="display:none;">
-    <h3>Barrica creada</h3>
-    <p><strong>ID:</strong> <span id="barricaId"></span></p>
+    <div id="qrContainer" style="display:none; margin-top:20px;">
+      <h3>QR de la barrica</h3>
+      <img id="qrImage" alt="QR Barrica" />
+      <br />
+      <a id="downloadQR" download="qr-barrica.png">
+        <button>Descargar QR</button>
+      </a>
+    </div>
 
-    <p>QR para editar la barrica:</p>
-    <img id="qrImage" alt="QR de la barrica" />
 
-    <a id="descargarQR" download="qr-barrica.png">
-      Descargar QR
-    </a>
-  </div>
+
 
   <hr style="margin: 30px 0;">
 
@@ -96,61 +97,52 @@
     </button>
 
   <script>
-    const form = document.getElementById('formBarrica');
-    const resultado = document.getElementById('resultado');
+  const form = document.getElementById('formCrear');
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      const data = {
-        numero_barrica: document.getElementById('numero_barrica').value,
-        numero_lote: document.getElementById('numero_lote').value,
-        fila: document.getElementById('fila').value,
-        uva: document.getElementById('uva').value,
-        anio: document.getElementById('anio').value
-      };
+    const body = {
+      numero_barrica: document.getElementById('numero_barrica').value,
+      lote: document.getElementById('lote').value,
+      sala: parseInt(document.getElementById('sala').value),
+      fila: document.getElementById('fila').value
+    };
 
-      const res = await fetch('/barricas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || 'Error al crear barrica');
-        return;
-      }
-
-      const id = json.barrica.id;
-      document.getElementById('barricaId').textContent = id;
-
-      // URL que simula el QR
-      const urlEdicion = `/editar?id=${id}`;
-
-      // Generar QR usando API pública (solo para maqueta)
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlEdicion)}`;
-
-      const img = document.getElementById('qrImage');
-      img.src = qrUrl;
-
-      const linkDescarga = document.getElementById('descargarQR');
-      linkDescarga.href = qrUrl;
-
-      resultado.style.display = 'block';
+    const res = await fetch('/barricas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
-    const btnExcel = document.getElementById('btnExcel');
+    const json = await res.json();
 
-   btnExcel.addEventListener('click', () => {
-  window.open('/excel/barricas', '_blank');
-});
+    if (!res.ok) {
+      alert(json.error || 'Error al crear barrica');
+      return;
+    }
 
+    const id = json.barrica.id;
 
-  </script>
+    // 🔹 Pedir QR real al backend
+    const qrResponse = await fetch(`/qr/${id}`);
+    const qrData = await qrResponse.json();
+
+    const qrContainer = document.getElementById('qrContainer');
+    const qrImage = document.getElementById('qrImage');
+    const downloadQR = document.getElementById('downloadQR');
+
+    qrImage.src = qrData.qrImage;
+    downloadQR.href = qrData.qrImage;
+
+    qrContainer.style.display = 'block';
+  });
+
+  const btnExcel = document.getElementById('btnExcel');
+  btnExcel.addEventListener('click', () => {
+    window.open('/excel/barricas', '_blank');
+  });
+</script>
 
 </body>
 </html>
