@@ -170,19 +170,17 @@ const ExcelJS = require('exceljs');
 
 app.get('/excel/barricas', async (req, res) => {
   try {
-    const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Barricas');
 
     sheet.columns = [
-      { header: 'ID', key: 'id', width: 10 },
-      { header: 'Número Barrica', key: 'numero_barrica', width: 20 },
-      { header: 'Número Lote', key: 'numero_lote', width: 20 },
+      { header: 'ID', key: 'id', width: 8 },
+      { header: 'Barrica', key: 'numero_barrica', width: 15 },
+      { header: 'Lote', key: 'lote', width: 15 },
+      { header: 'Sala', key: 'sala', width: 10 },
       { header: 'Fila', key: 'fila', width: 10 },
-      { header: 'Uva', key: 'uva', width: 15 },
-      { header: 'Año', key: 'anio', width: 10 },
-      { header: 'Última Acción', key: 'accion', width: 25 },
-      { header: 'Operario', key: 'operario', width: 20 },
+      { header: 'Última acción', key: 'accion', width: 20 },
+      { header: 'Operario', key: 'operario', width: 15 },
       { header: 'Fecha', key: 'fecha', width: 20 }
     ];
 
@@ -190,10 +188,9 @@ app.get('/excel/barricas', async (req, res) => {
       SELECT
         b.id,
         b.numero_barrica,
-        b.numero_lote,
+        b.lote,
+        b.sala,
         b.fila,
-        b.uva,
-        b.anio,
         (
           SELECT a.accion
           FROM acciones a
@@ -227,7 +224,6 @@ app.get('/excel/barricas', async (req, res) => {
 
       rows.forEach(row => sheet.addRow(row));
 
-      // 👇 Headers correctos para descarga
       res.setHeader(
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -237,16 +233,15 @@ app.get('/excel/barricas', async (req, res) => {
         'attachment; filename="barricas.xlsx"'
       );
 
-      // 👇 Enviar Excel directo al navegador
       await workbook.xlsx.write(res);
       res.end();
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error interno' });
   }
 });
+
 
 app.get('/qr/:id', async (req, res) => {
   const { id } = req.params;
