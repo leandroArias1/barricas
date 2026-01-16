@@ -116,15 +116,19 @@ app.put('/barricas/:id', (req, res) => {
   const { id } = req.params;
 
   const {
-    accion,
-    operario
-  } = req.body;
+  sala,
+  fila,
+  accion,
+  operario
+} = req.body;
 
-  if (!accion || !operario) {
-    return res.status(400).json({
-      error: 'accion y operario son obligatorios'
-    });
-  }
+
+  if (!sala || !fila || !accion || !operario) {
+  return res.status(400).json({
+    error: 'sala, fila, accion y operario son obligatorios'
+  });
+}
+
 
   const updateQuery = `
   UPDATE barricas
