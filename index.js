@@ -1,145 +1,142 @@
-const QRCode = require('qrcode');
 const express = require('express');
 const cors = require('cors');
-const db = require('./database');
 const path = require('path');
+const QRCode = require('qrcode');
 const ExcelJS = require('exceljs');
+const db = require('./database');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-app.get('/', (req, res) => res.send('Backend Bodega funcionando'));
-app.get('/crear', (req, res) => res.sendFile(path.join(__dirname, 'frontend/crear.html')));
-app.get('/editar', (req, res) => res.sendFile(path.join(__dirname, 'frontend/editar.html')));
-app.get('/lote', (req, res) => res.sendFile(path.join(__dirname, 'frontend/lote.html')));
+app.get('/', (_, res) => res.send('Backend Bodega funcionando'));
+app.get('/crear', (_, res) => res.sendFile(path.join(__dirname, 'frontend/crear.html')));
+app.get('/editar', (_, res) => res.sendFile(path.join(__dirname, 'frontend/editar.html')));
+app.get('/lote', (_, res) => res.sendFile(path.join(__dirname, 'frontend/lote.html')));
 
-
-// ================== CREAR BARRICA ==================
-app.post('/barricas', (req, res) => {
+/* ================= CREAR BARRICA ================= */
+app.post('/barricas', async (req, res) => {
   const { numero_barrica, lote, sala, nave, fila } = req.body;
 
-  const query = `
-    INSERT INTO barricas (numero_barrica, lote, sala, nave, fila)
-    VALUES (?, ?, ?, ?, ?)
-  `;
+  const result = await db.query(
+    `INSERT INTO barricas (numero_barrica, lote, sala, nave, fila)
+     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [numero_barrica, lote, sala, nave, fila]
+  );
 
-  db.run(query, [numero_barrica, lote, sala, nave, fila], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+  res.json({ barrica: result.rows[0] });
+});
 
-    res.json({
-      barrica: { id: this.lastID, numero_barrica, lote, sala, nave, fila }
-    });
+/* ================= OBTENER BARRICA ================= */
+app.get('/barricas/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const barrica = await db.query(
+    `SELECT * FROM barricas WHERE id=$1`,
+    [id]
+  );
+
+  if (!barrica.rows.length) {
+    return res.status(404).json({ error: 'Barrica no encontrada' });
+  }
+
+  const accion = await db.query(
+    `SELECT accion, operario, fecha
+     FROM acciones WHERE barrica_id=$1
+     ORDER BY fecha DESC LIMIT 1`,
+    [id]
+  );
+
+  res.json({
+    barrica: barrica.rows[0],
+    ultima_accion: accion.rows[0] || null
   });
 });
 
-
-// ================== EDITAR INDIVIDUAL ==================
-app.put('/barricas/:id', (req, res) => {
+/* ================= EDITAR INDIVIDUAL ================= */
+app.put('/barricas/:id', async (req, res) => {
   const { sala, fila, accion, operario } = req.body;
+  const { id } = req.params;
 
-  db.run(
-    `UPDATE barricas SET sala=?, fila=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-    [sala, fila, req.params.id]
+  await db.query(
+    `UPDATE barricas
+     SET sala=$1, fila=$2, updated_at=CURRENT_TIMESTAMP
+     WHERE id=$3`,
+    [sala, fila, id]
   );
 
-  db.run(
-    `INSERT INTO acciones (barrica_id, accion, operario) VALUES (?, ?, ?)`,
-    [req.params.id, accion, operario]
+  await db.query(
+    `INSERT INTO acciones (barrica_id, accion, operario)
+     VALUES ($1,$2,$3)`,
+    [id, accion, operario]
   );
 
   res.json({ ok: true });
 });
 
+/* ================= VALIDAR LOTE ================= */
+app.get('/barrica-lote/:id', async (req, res) => {
+  const r = await db.query(
+    `SELECT id, lote FROM barricas WHERE id=$1`,
+    [req.params.id]
+  );
 
-// ================== VALIDAR LOTE ==================
-app.get('/barrica-lote/:id', (req, res) => {
-  db.get(`SELECT id, lote FROM barricas WHERE id=?`, [req.params.id], (err, row) => {
-    if (!row) return res.status(404).json({ error: 'No existe' });
-    res.json(row);
+  if (!r.rows.length) {
+    return res.status(404).json({ error: 'Barrica no existe' });
+  }
+
+  res.json(r.rows[0]);
+});
+
+/* ================= MOVIMIENTO MASIVO ================= */
+app.post('/lote/movimiento', async (req, res) => {
+  const { barricas, accion, operario, sala, nave, fila } = req.body;
+
+  const result = await db.query(
+    `SELECT id, lote FROM barricas WHERE id = ANY($1::int[])`,
+    [barricas]
+  );
+
+  const existentes = result.rows.map(r => r.id);
+  const inexistentes = barricas.filter(id => !existentes.includes(Number(id)));
+
+  if (!existentes.length) {
+    return res.status(400).json({ error: "No hay barricas válidas" });
+  }
+
+  const loteBase = result.rows[0].lote;
+  const validas = result.rows.filter(r => r.lote === loteBase).map(r => r.id);
+  const ignoradas = result.rows.filter(r => r.lote !== loteBase).map(r => r.id);
+
+  if (validas.length) {
+    await db.query(
+      `UPDATE barricas
+       SET sala=$1, nave=$2, fila=$3, updated_at=CURRENT_TIMESTAMP
+       WHERE id = ANY($4::int[])`,
+      [sala, nave, fila, validas]
+    );
+
+    for (const id of validas) {
+      await db.query(
+        `INSERT INTO acciones (barrica_id, accion, operario)
+         VALUES ($1,$2,$3)`,
+        [id, accion, operario]
+      );
+    }
+  }
+
+  res.json({
+    message: "Movimiento aplicado",
+    lote: loteBase,
+    movidas: validas,
+    ignoradas,
+    inexistentes
   });
 });
 
-
-// ================== MOVIMIENTO MASIVO ==================
-app.post('/lote/movimiento', (req, res) => {
-  const { barricas, accion, operario, sala, nave, fila } = req.body;
-
-  if (!barricas || !barricas.length) {
-    return res.status(400).json({ error: "No se enviaron barricas" });
-  }
-
-  const placeholders = barricas.map(() => '?').join(',');
-
-  db.all(
-    `SELECT id, lote FROM barricas WHERE id IN (${placeholders})`,
-    barricas,
-    (err, rows) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error DB" });
-      }
-
-      if (!rows.length) {
-        return res.status(400).json({ error: "Ninguna barrica válida" });
-      }
-
-      const loteBase = rows[0].lote;
-
-      const validas = rows
-        .filter(r => r.lote === loteBase)
-        .map(r => r.id);
-
-      const invalidas = rows
-        .filter(r => r.lote !== loteBase)
-        .map(r => r.id);
-
-      const faltantes = barricas.filter(id => !rows.some(r => r.id == id));
-
-      if (!validas.length) {
-        return res.status(400).json({
-          error: "Todas las barricas son inválidas"
-        });
-      }
-
-      const updatePlaceholders = validas.map(() => '?').join(',');
-
-      db.run(
-        `UPDATE barricas
-         SET sala=?, nave=?, fila=?, updated_at=CURRENT_TIMESTAMP
-         WHERE id IN (${updatePlaceholders})`,
-        [sala, nave, fila, ...validas],
-        function (err) {
-          if (err) {
-            console.error(err);
-            return res.status(500).json({ error: "Error update" });
-          }
-
-          const stmt = db.prepare(`
-            INSERT INTO acciones (barrica_id, accion, operario)
-            VALUES (?, ?, ?)
-          `);
-
-          validas.forEach(id => stmt.run(id, accion, operario));
-          stmt.finalize();
-
-          res.json({
-            message: "Movimiento aplicado",
-            lote: loteBase,
-            movidas: validas,
-            ignoradas: invalidas,
-            inexistentes: faltantes
-          });
-        }
-      );
-    }
-  );
-});
-
-
-// ================== EXCEL ==================
-app.get('/excel/barricas', async (req, res) => {
+/* ================= EXCEL ================= */
+app.get('/excel/barricas', async (_, res) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Barricas');
 
@@ -155,21 +152,23 @@ app.get('/excel/barricas', async (req, res) => {
     { header:'Fecha', key:'fecha', width:20 }
   ];
 
-  db.all(`
-    SELECT b.*, 
+  const data = await db.query(`
+    SELECT b.*,
       (SELECT accion FROM acciones a WHERE a.barrica_id=b.id ORDER BY fecha DESC LIMIT 1) accion,
       (SELECT operario FROM acciones a WHERE a.barrica_id=b.id ORDER BY fecha DESC LIMIT 1) operario,
       (SELECT fecha FROM acciones a WHERE a.barrica_id=b.id ORDER BY fecha DESC LIMIT 1) fecha
     FROM barricas b
-  `,(err,rows)=>{
-    rows.forEach(r=>sheet.addRow(r));
-    res.setHeader('Content-Disposition','attachment; filename=barricas.xlsx');
-    workbook.xlsx.write(res).then(()=>res.end());
-  });
+    ORDER BY b.id
+  `);
+
+  data.rows.forEach(r => sheet.addRow(r));
+
+  res.setHeader('Content-Disposition', 'attachment; filename=barricas.xlsx');
+  await workbook.xlsx.write(res);
+  res.end();
 });
 
-
-// ================== QR ==================
+/* ================= QR ================= */
 app.get('/qr/:id', async (req, res) => {
   const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
   const url = `${base}/editar?id=${req.params.id}`;
@@ -177,6 +176,5 @@ app.get('/qr/:id', async (req, res) => {
   res.json({ qrImage: qr });
 });
 
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Servidor en puerto " + PORT));
+app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
