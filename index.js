@@ -18,6 +18,11 @@ app.get('/editar', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'editar.html'));
 });
 
+app.get('/lote', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'lote.html'));
+});
+
+
 
 
 // Ruta de prueba
@@ -27,7 +32,7 @@ app.get('/', (req, res) => {
 
 // ✅ ENDPOINT CREAR BARRICA
 app.post('/barricas', (req, res) => {
-  const { numero_barrica, lote, sala, fila } = req.body;
+  const { numero_barrica, lote, sala, nave, fila } = req.body;
 
   if (!numero_barrica || !lote || !sala || !fila) {
     return res.status(400).json({
@@ -40,14 +45,16 @@ app.post('/barricas', (req, res) => {
     numero_barrica,
     lote,
     sala,
+    nave,
     fila
-  ) VALUES (?, ?, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?)
 `;
 
 const params = [
   numero_barrica,
   lote,
   sala,
+  nave,
   fila
 ];
 
@@ -65,6 +72,7 @@ const params = [
         numero_barrica,
         lote,
         sala,
+        nave,
         fila
       }
     });
@@ -183,6 +191,7 @@ app.get('/excel/barricas', async (req, res) => {
       { header: 'Lote', key: 'lote', width: 15 },
       { header: 'Sala', key: 'sala', width: 10 },
       { header: 'Fila', key: 'fila', width: 10 },
+      { header: 'Nave', key: 'nave', width: 10 },
       { header: 'Última acción', key: 'accion', width: 20 },
       { header: 'Operario', key: 'operario', width: 15 },
       { header: 'Fecha', key: 'fecha', width: 20 }
@@ -195,6 +204,7 @@ app.get('/excel/barricas', async (req, res) => {
         b.lote,
         b.sala,
         b.fila,
+        b.nave,
         (
           SELECT a.accion
           FROM acciones a
@@ -219,6 +229,29 @@ app.get('/excel/barricas', async (req, res) => {
       FROM barricas b
       ORDER BY b.id
     `;
+
+    app.post('/lote/movimiento', (req, res) => {
+  const { barricas, sala, nave, fila, accion, operario } = req.body;
+
+  if (!barricas || !barricas.length) {
+    return res.status(400).json({ error: 'No hay barricas en el lote' });
+  }
+
+  barricas.forEach(id => {
+    db.run(
+      `UPDATE barricas SET sala=?, nave=?, fila=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [sala, nave, fila, id]
+    );
+
+    db.run(
+      `INSERT INTO acciones (barrica_id, accion, operario) VALUES (?, ?, ?)`,
+      [id, accion, operario]
+    );
+  });
+
+  res.json({ message: 'Movimiento masivo aplicado' });
+});
+
 
     db.all(query, async (err, rows) => {
       if (err) {

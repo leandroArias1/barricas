@@ -105,6 +105,14 @@ button:hover {
       </select>
     </label>
 
+    <label>Nave
+      <select id="nave" required>
+        <option value="">Seleccionar nave</option>
+        <option value="1">Nave 1</option>
+        <option value="2">Nave 2</option>
+      </select>
+    </label>
+
     <label>Fila
       <input type="text" id="fila" placeholder="Ej: 15" required />
     </label>
@@ -140,10 +148,12 @@ button:hover {
       numero_barrica: document.getElementById('numero_barrica').value,
       lote: document.getElementById('lote').value,
       sala: parseInt(document.getElementById('sala').value),
+      nave: parseInt(document.getElementById('nave').value),
       fila: document.getElementById('fila').value
     };
 
-    const res = await fetch('/barricas', {
+
+    const res = await fetch('http://localhost:3000/barricas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -158,24 +168,29 @@ button:hover {
 
     const id = json.barrica.id;
 
-    // 🔹 Pedir QR real al backend
-    const qrResponse = await fetch(`/qr/${id}`);
-    const qrData = await qrResponse.json();
+   // pedir QR real al backend
+const qrRes = await fetch(`http://localhost:3000/qr/${id}`);
+const qrData = await qrRes.json();
 
-    const qrContainer = document.getElementById('qrContainer');
-    const qrImage = document.getElementById('qrImage');
-    const downloadQR = document.getElementById('downloadQR');
+const img = document.getElementById('qrImage');
+img.src = qrData.qrImage;
 
-    qrImage.src = qrData.qrImage;
-    downloadQR.href = qrData.qrImage;
+const linkDescarga = document.getElementById('downloadQR');
+if (linkDescarga) {
+  linkDescarga.href = qrData.qrImage;
+}
 
-    qrContainer.style.display = 'block';
-  });
+// mostrar el contenedor del QR
+document.getElementById('qrContainer').style.display = 'block';
 
-  const btnExcel = document.getElementById('btnExcel');
-  btnExcel.addEventListener('click', () => {
-    window.open('/excel/barricas', '_blank');
-  });
+});
+
+    const btnExcel = document.getElementById('btnExcel');
+btnExcel.addEventListener('click', () => {
+  window.open('http://localhost:3000/excel/barricas', '_blank');
+});
+
+
 </script>
 
 </body>

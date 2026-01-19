@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Movimiento por Lote</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f5;
+      padding: 20px;
+    }
+    h1 { text-align:center; }
+    select, input, button {
+      width:100%;
+      padding:10px;
+      margin-top:10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Movimiento por Lote</h1>
+
+<div id="reader" style="width:100%; max-width:400px;"></div>
+
+<label>Acción</label>
+<select id="accion">
+  <option value="Movimiento">Movimiento</option>
+</select>
+
+<label>Operario</label>
+<input id="operario">
+
+<label>Sala destino</label>
+<select id="sala">
+  <option value="1">Sala 1</option>
+  <option value="2">Sala 2</option>
+  <option value="3">Sala 3</option>
+</select>
+
+<label>Nave destino</label>
+<select id="nave">
+  <option value="1">Nave 1</option>
+  <option value="2">Nave 2</option>
+</select>
+
+<label>Fila destino</label>
+<input id="fila">
+
+<button id="start">Iniciar escaneo</button>
+<button id="finish">Finalizar lote</button>
+
+<ul id="lista"></ul>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+let escaneadas = [];
+const lista = document.getElementById('lista');
+
+document.getElementById('start').addEventListener('click', () => {
+  const scanner = new Html5Qrcode("reader");
+
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    (decodedText) => {
+      try {
+        const url = new URL(decodedText);
+        const id = url.searchParams.get("id");
+
+        if (id && !escaneadas.includes(id)) {
+          escaneadas.push(id);
+          const li = document.createElement('li');
+          li.textContent = `Barrica ${id} agregada`;
+          lista.appendChild(li);
+        }
+      } catch (e) {}
+    }
+  );
+});
+
+document.getElementById('finish').addEventListener('click', async () => {
+  const body = {
+    barricas: escaneadas,
+    accion: accion.value,
+    operario: operario.value,
+    sala: parseInt(sala.value),
+    nave: parseInt(nave.value),
+    fila: fila.value
+  };
+
+  await fetch('/lote/movimiento', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+
+  alert("Lote actualizado");
+  escaneadas = [];
+  lista.innerHTML = "";
+});
+</script>
+
+</body>
+</html>

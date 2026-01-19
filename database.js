@@ -21,6 +21,20 @@ db.serialize(() => {
     )
   `);
 
+  db.all(`PRAGMA table_info(barricas)`, (err, columns) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  const existeNave = columns.some(col => col.name === 'nave');
+
+  if (!existeNave) {
+    db.run(`ALTER TABLE barricas ADD COLUMN nave INTEGER`);
+    console.log('Columna nave agregada');
+  }
+});
+
   db.run(`
     CREATE TABLE IF NOT EXISTS acciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
