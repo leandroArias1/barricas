@@ -1,16 +1,20 @@
 const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs');
 const path = require('path');
 
-// 👇 Ruta dinámica según entorno
-const dbPath = process.env.RENDER
-  ? '/var/data/barricas.db'
-  : path.join(__dirname, 'barricas.db');
+// Crear carpeta db si no existe
+const dbPath = path.join(__dirname, 'db');
 
-const db = new sqlite3.Database(dbPath, (err) => {
+if (!fs.existsSync(dbPath)) {
+  fs.mkdirSync(dbPath);
+  console.log('Carpeta DB creada');
+}
+
+const db = new sqlite3.Database(path.join(dbPath, 'barricas.db'), (err) => {
   if (err) {
     console.error('Error al abrir la base de datos', err);
   } else {
-    console.log('SQLite conectada en:', dbPath);
+    console.log('Base de datos SQLite conectada');
   }
 });
 
