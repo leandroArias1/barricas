@@ -365,6 +365,18 @@ app.post('/lote/movimiento', (req, res) => {
   });
 });
 
+app.get('/barrica-lote/:id', (req, res) => {
+  db.get(
+    `SELECT id, lote FROM barricas WHERE id = ?`,
+    [req.params.id],
+    (err, row) => {
+      if (err || !row) {
+        return res.status(404).json({ error: 'Barrica no encontrada' });
+      }
+      res.json(row);
+    }
+  );
+});
 
 
 

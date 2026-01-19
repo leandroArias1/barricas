@@ -68,6 +68,8 @@
 
 <script>
 let escaneadas = [];
+let loteActual = null;
+
 const lista = document.getElementById('lista');
 const msg = document.getElementById('msg');
 
@@ -84,17 +86,32 @@ document.getElementById('start').addEventListener('click', () => {
   scanner.start(
     { facingMode: "environment" },
     { fps: 10, qrbox: 250 },
-    (decodedText) => {
+    async (decodedText) => {
       try {
         const url = new URL(decodedText);
         const id = url.searchParams.get("id");
 
-        if (id && !escaneadas.includes(id)) {
-          escaneadas.push(id);
-          const li = document.createElement('li');
-          li.textContent = `Barrica ${id} agregada`;
-          lista.appendChild(li);
+        if (!id || escaneadas.includes(id)) return;
+
+        const res = await fetch(`/barrica-lote/${id}`);
+        const data = await res.json();
+
+        if (!loteActual) {
+          loteActual = data.lote;
         }
+
+        if (data.lote !== loteActual) {
+          mostrarMensaje(`❌ Barrica ${id} pertenece al lote ${data.lote} (lote actual ${loteActual})`, "red");
+          return;
+        }
+
+        escaneadas.push(id);
+        const li = document.createElement('li');
+        li.textContent = `Barrica ${id} agregada (Lote ${data.lote})`;
+        lista.appendChild(li);
+
+        mostrarMensaje(`✔ Lote detectado: ${loteActual}`, "green");
+
       } catch (e) {}
     }
   );
@@ -102,7 +119,7 @@ document.getElementById('start').addEventListener('click', () => {
 
 document.getElementById('finish').addEventListener('click', async () => {
   if (!escaneadas.length) {
-    mostrarMensaje("⚠ No escaneaste barricas", "red");
+    mostrarMensaje("No hay barricas válidas escaneadas", "red");
     return;
   }
 
@@ -124,13 +141,14 @@ document.getElementById('finish').addEventListener('click', async () => {
   const data = await res.json();
 
   if (!res.ok) {
-    mostrarMensaje("❌ " + data.error, "red");
+    mostrarMensaje(data.error, "red");
     return;
   }
 
-  mostrarMensaje("✔ Registro de lote terminado correctamente", "green");
+  mostrarMensaje("✔ Movimiento de lote guardado correctamente", "green");
 
   escaneadas = [];
+  loteActual = null;
   lista.innerHTML = "";
 });
 </script>
