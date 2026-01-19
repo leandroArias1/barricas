@@ -300,6 +300,72 @@ app.get('/qr/:id', async (req, res) => {
   }
 });
 
+app.post('/lote/movimiento', (req, res) => {
+  const { barricas, accion, operario, sala, nave, fila } = req.body;
+
+  if (!barricas || !barricas.length) {
+    return res.status(400).json({ error: "No se enviaron barricas" });
+  }
+
+  const placeholders = barricas.map(() => '?').join(',');
+
+  const query = `
+    SELECT id, lote FROM barricas
+    WHERE id IN (${placeholders})
+  `;
+
+  db.all(query, barricas, (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al validar lote" });
+    }
+
+    if (rows.length !== barricas.length) {
+      return res.status(400).json({ error: "Alguna barrica no existe" });
+    }
+
+    const loteBase = rows[0].lote;
+    const distintas = rows.filter(r => r.lote !== loteBase);
+
+    if (distintas.length > 0) {
+      return res.status(400).json({
+        error: "Hay barricas mezcladas de distintos lotes"
+      });
+    }
+
+    const update = `
+      UPDATE barricas
+      SET sala = ?, nave = ?, fila = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id IN (${placeholders})
+    `;
+
+    db.run(update, [sala, nave, fila, ...barricas], function (err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al mover barricas" });
+      }
+
+      const stmt = db.prepare(`
+        INSERT INTO acciones (barrica_id, accion, operario)
+        VALUES (?, ?, ?)
+      `);
+
+      barricas.forEach(id => {
+        stmt.run(id, accion, operario);
+      });
+
+      stmt.finalize();
+
+      res.json({
+        message: "Movimiento masivo aplicado correctamente",
+        lote: loteBase,
+        cantidad: barricas.length
+      });
+    });
+  });
+});
+
+
 
 
 // 👇 SIEMPRE AL FINAL
