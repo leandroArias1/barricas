@@ -66,29 +66,75 @@ app.get('/barrica-lote/:id', (req, res) => {
 app.post('/lote/movimiento', (req, res) => {
   const { barricas, accion, operario, sala, nave, fila } = req.body;
 
-  if (!barricas.length) return res.status(400).json({ error: 'Vacío' });
+  if (!barricas || !barricas.length) {
+    return res.status(400).json({ error: "No se enviaron barricas" });
+  }
 
   const placeholders = barricas.map(() => '?').join(',');
 
-  db.all(`SELECT id,lote FROM barricas WHERE id IN (${placeholders})`, barricas, (err, rows) => {
-    if (rows.length !== barricas.length) return res.status(400).json({ error: 'Alguna no existe' });
+  db.all(
+    `SELECT id, lote FROM barricas WHERE id IN (${placeholders})`,
+    barricas,
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error DB" });
+      }
 
-    const loteBase = rows[0].lote;
-    if (rows.some(r => r.lote !== loteBase)) {
-      return res.status(400).json({ error: 'Lotes mezclados' });
+      if (!rows.length) {
+        return res.status(400).json({ error: "Ninguna barrica válida" });
+      }
+
+      const loteBase = rows[0].lote;
+
+      const validas = rows
+        .filter(r => r.lote === loteBase)
+        .map(r => r.id);
+
+      const invalidas = rows
+        .filter(r => r.lote !== loteBase)
+        .map(r => r.id);
+
+      const faltantes = barricas.filter(id => !rows.some(r => r.id == id));
+
+      if (!validas.length) {
+        return res.status(400).json({
+          error: "Todas las barricas son inválidas"
+        });
+      }
+
+      const updatePlaceholders = validas.map(() => '?').join(',');
+
+      db.run(
+        `UPDATE barricas
+         SET sala=?, nave=?, fila=?, updated_at=CURRENT_TIMESTAMP
+         WHERE id IN (${updatePlaceholders})`,
+        [sala, nave, fila, ...validas],
+        function (err) {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error update" });
+          }
+
+          const stmt = db.prepare(`
+            INSERT INTO acciones (barrica_id, accion, operario)
+            VALUES (?, ?, ?)
+          `);
+
+          validas.forEach(id => stmt.run(id, accion, operario));
+          stmt.finalize();
+
+          res.json({
+            message: "Movimiento aplicado",
+            lote: loteBase,
+            movidas: validas,
+            ignoradas: invalidas,
+            inexistentes: faltantes
+          });
+        }
+      );
     }
-
-    db.run(
-      `UPDATE barricas SET sala=?, nave=?, fila=?, updated_at=CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
-      [sala, nave, fila, ...barricas]
-    );
-
-    const stmt = db.prepare(`INSERT INTO acciones (barrica_id, accion, operario) VALUES (?, ?, ?)`);
-    barricas.forEach(id => stmt.run(id, accion, operario));
-    stmt.finalize();
-
-    res.json({ ok: true });
-  });
+  );
 });
 
 
