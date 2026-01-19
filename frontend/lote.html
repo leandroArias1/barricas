@@ -12,10 +12,18 @@
       padding: 20px;
     }
     h1 { text-align:center; }
+
     select, input, button {
       width:100%;
       padding:10px;
       margin-top:10px;
+      font-size:15px;
+    }
+
+    #msg {
+      margin-top:15px;
+      font-weight:bold;
+      text-align:center;
     }
   </style>
 </head>
@@ -54,14 +62,23 @@
 <button id="finish">Finalizar lote</button>
 
 <ul id="lista"></ul>
+<div id="msg"></div>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <script>
 let escaneadas = [];
 const lista = document.getElementById('lista');
+const msg = document.getElementById('msg');
+
+function mostrarMensaje(texto, color) {
+  msg.style.color = color;
+  msg.textContent = texto;
+}
 
 document.getElementById('start').addEventListener('click', () => {
+  mostrarMensaje("Escaneando...", "#444");
+
   const scanner = new Html5Qrcode("reader");
 
   scanner.start(
@@ -84,6 +101,11 @@ document.getElementById('start').addEventListener('click', () => {
 });
 
 document.getElementById('finish').addEventListener('click', async () => {
+  if (!escaneadas.length) {
+    mostrarMensaje("⚠ No escaneaste barricas", "red");
+    return;
+  }
+
   const body = {
     barricas: escaneadas,
     accion: accion.value,
@@ -93,13 +115,21 @@ document.getElementById('finish').addEventListener('click', async () => {
     fila: fila.value
   };
 
-  await fetch('/lote/movimiento', {
+  const res = await fetch('/lote/movimiento', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify(body)
   });
 
-  alert("Lote actualizado");
+  const data = await res.json();
+
+  if (!res.ok) {
+    mostrarMensaje("❌ " + data.error, "red");
+    return;
+  }
+
+  mostrarMensaje("✔ Registro de lote terminado correctamente", "green");
+
   escaneadas = [];
   lista.innerHTML = "";
 });
