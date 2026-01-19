@@ -69,19 +69,20 @@
 <script>
 let escaneadas = [];
 let loteActual = null;
+let scanner;
 
 const lista = document.getElementById('lista');
-const msg = document.getElementById('msg');
 
-function mostrarMensaje(texto, color) {
+function mostrarMensaje(texto, color="black") {
+  const msg = document.createElement("li");
   msg.style.color = color;
+  msg.style.fontWeight = "bold";
   msg.textContent = texto;
+  lista.appendChild(msg);
 }
 
-document.getElementById('start').addEventListener('click', () => {
-  mostrarMensaje("Escaneando...", "#444");
-
-  const scanner = new Html5Qrcode("reader");
+document.getElementById('start').addEventListener('click', async () => {
+  scanner = new Html5Qrcode("reader");
 
   scanner.start(
     { facingMode: "environment" },
@@ -91,26 +92,31 @@ document.getElementById('start').addEventListener('click', () => {
         const url = new URL(decodedText);
         const id = url.searchParams.get("id");
 
-        if (!id || escaneadas.includes(id)) return;
+        if (!id) return;
 
-        const res = await fetch(`/barrica-lote/${id}`);
-        const data = await res.json();
+        if (escaneadas.includes(id)) return; // evitar repetidas
 
-        if (!loteActual) {
-          loteActual = data.lote;
+        // consultar barrica al backend
+        const res = await fetch(`/barricas/${id}`);
+        if (!res.ok) {
+          mostrarMensaje(`Barrica ${id} no existe`, "red");
+          return;
         }
 
-        if (data.lote !== loteActual) {
-          mostrarMensaje(`❌ Barrica ${id} pertenece al lote ${data.lote} (lote actual ${loteActual})`, "red");
+        const data = await res.json();
+        const loteBarrica = data.barrica.lote;
+
+        if (!loteActual) {
+          loteActual = loteBarrica;
+        }
+
+        if (loteBarrica !== loteActual) {
+          mostrarMensaje(`❌ Barrica ${id} pertenece al lote ${loteBarrica} (actual ${loteActual})`, "red");
           return;
         }
 
         escaneadas.push(id);
-        const li = document.createElement('li');
-        li.textContent = `Barrica ${id} agregada (Lote ${data.lote})`;
-        lista.appendChild(li);
-
-        mostrarMensaje(`✔ Lote detectado: ${loteActual}`, "green");
+        mostrarMensaje(`Barrica ${id} agregada (Lote ${loteBarrica})`);
 
       } catch (e) {}
     }
@@ -119,7 +125,7 @@ document.getElementById('start').addEventListener('click', () => {
 
 document.getElementById('finish').addEventListener('click', async () => {
   if (!escaneadas.length) {
-    mostrarMensaje("No hay barricas válidas escaneadas", "red");
+    alert("No hay barricas válidas");
     return;
   }
 
@@ -138,20 +144,22 @@ document.getElementById('finish').addEventListener('click', async () => {
     body: JSON.stringify(body)
   });
 
-  const data = await res.json();
+  const json = await res.json();
 
   if (!res.ok) {
-    mostrarMensaje(data.error, "red");
+    mostrarMensaje(`❌ ${json.error}`, "red");
     return;
   }
 
-  mostrarMensaje("✔ Movimiento de lote guardado correctamente", "green");
+  mostrarMensaje("✅ Movimiento aplicado correctamente", "green");
 
   escaneadas = [];
   loteActual = null;
-  lista.innerHTML = "";
+
+  if (scanner) await scanner.stop();
 });
 </script>
+
 
 </body>
 </html>
