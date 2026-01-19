@@ -169,7 +169,7 @@ button:hover {
     const id = json.barrica.id;
 
    // pedir QR real al backend
-const qrRes = await fetch(`http://localhost:3000/qr/${id}`);
+const qrRes = await fetch(`/qr/${id}`);
 const qrData = await qrRes.json();
 
 const img = document.getElementById('qrImage');
@@ -187,7 +187,7 @@ document.getElementById('qrContainer').style.display = 'block';
 
     const btnExcel = document.getElementById('btnExcel');
 btnExcel.addEventListener('click', () => {
-  window.open('http://localhost:3000/excel/barricas', '_blank');
+  window.open('/excel/barricas', '_blank');
 });
 
 

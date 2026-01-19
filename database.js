@@ -1,10 +1,16 @@
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
-const db = new sqlite3.Database('/data/barricas.db', (err) => {
+// 👇 Ruta dinámica según entorno
+const dbPath = process.env.RENDER
+  ? '/var/data/barricas.db'
+  : path.join(__dirname, 'barricas.db');
+
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error al abrir la base de datos', err);
   } else {
-    console.log('Base de datos SQLite conectada');
+    console.log('SQLite conectada en:', dbPath);
   }
 });
 
@@ -15,25 +21,12 @@ db.serialize(() => {
       numero_barrica TEXT NOT NULL,
       lote TEXT NOT NULL,
       sala INTEGER NOT NULL,
+      nave INTEGER,
       fila TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-
-  db.all(`PRAGMA table_info(barricas)`, (err, columns) => {
-  if (err) {
-    console.error(err);
-    return;
-  }
-
-  const existeNave = columns.some(col => col.name === 'nave');
-
-  if (!existeNave) {
-    db.run(`ALTER TABLE barricas ADD COLUMN nave INTEGER`);
-    console.log('Columna nave agregada');
-  }
-});
 
   db.run(`
     CREATE TABLE IF NOT EXISTS acciones (
