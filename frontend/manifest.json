@@ -1,7 +1,7 @@
 {
   "name": "Bodega – Gestión de Barricas",
   "short_name": "Barricas",
-  "start_url": "/crear",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f4f6f5",
   "theme_color": "#2f6f4e",

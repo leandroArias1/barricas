@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Bodega – Barricas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2f6f4e">
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f4f6f5;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 { margin-bottom: 30px; }
+    a {
+      display: block;
+      margin: 15px 0;
+      padding: 16px;
+      background: #2f6f4e;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Bodega – Gestión</h1>
+
+<a href="/crear">➕ Crear barrica</a>
+<a href="/lote">📦 Movimiento por lote</a>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+
+</body>
+</html>
