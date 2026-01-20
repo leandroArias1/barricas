@@ -46,53 +46,75 @@ app.get('/barricas/:id', async (req, res) => {
 
 /* ===== MOVIMIENTO POR LOTE ===== */
 app.post('/lote/movimiento', async (req, res) => {
-  const { barricas, accion, operario, sala, fila } = req.body;
+  try {
+    const { barricas, accion, operario, sala, fila } = req.body;
 
-  const r = await db.query(
-    `SELECT id, lote, sala, fila FROM barricas WHERE id = ANY($1::int[])`,
-    [barricas]
-  );
+    if (!barricas || !barricas.length) {
+      return res.status(400).json({ error: 'No hay barricas escaneadas' });
+    }
 
-  await appendMovimiento([
-    b.numero_barrica,
-    loteBase,
-    accion,
-    operario,
-    b.nave ?? '',
-    b.sala,
-    b.fila,
-    sala,
-    fila,
-    new Date().toLocaleString('es-AR')
-]);
-
-
-  
-  if (!r.rows.length) return res.status(400).json({ error: 'Barricas inexistentes' });
-
-  const loteBase = r.rows[0].lote;
-  const validas = r.rows.filter(b => b.lote === loteBase);
-  const ignoradas = r.rows.filter(b => b.lote !== loteBase).map(b => b.id);
-
-  for (const b of validas) {
-    await db.query(
-      `INSERT INTO acciones (
-        barrica_id, accion, operario,
-        sala_origen, fila_origen,
-        sala_destino, fila_destino
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [b.id, accion, operario, b.sala, b.fila, sala, fila]
+    const r = await db.query(
+      `SELECT id, numero_barrica, lote, sala, fila
+       FROM barricas
+       WHERE id = ANY($1::int[])`,
+      [barricas]
     );
+
+    if (!r.rows.length) {
+      return res.status(400).json({ error: 'Barricas inexistentes' });
+    }
+
+    const loteBase = r.rows[0].lote;
+    const validas = r.rows.filter(b => b.lote === loteBase);
+    const ignoradas = r.rows.filter(b => b.lote !== loteBase).map(b => b.id);
+
+    for (const b of validas) {
+      // 1️⃣ Guardar acción en DB
+      await db.query(
+        `INSERT INTO acciones (
+          barrica_id, accion, operario,
+          sala_origen, fila_origen,
+          sala_destino, fila_destino
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [b.id, accion, operario, b.sala, b.fila, sala, fila]
+      );
+
+      // 2️⃣ Guardar en Google Sheets
+      await appendMovimiento([
+        b.numero_barrica,
+        b.lote,
+        accion,
+        operario,
+        '',            // nave (reservado)
+        b.sala,
+        b.fila,
+        sala,
+        fila,
+        new Date().toLocaleString('es-AR')
+      ]);
+    }
+
+    // 3️⃣ Actualizar barricas
+    await db.query(
+      `UPDATE barricas
+       SET sala=$1, fila=$2, updated_at=CURRENT_TIMESTAMP
+       WHERE id = ANY($3::int[])`,
+      [sala, fila, validas.map(b => b.id)]
+    );
+
+    res.json({
+      ok: true,
+      mensaje: 'Movimiento aplicado correctamente',
+      movidas: validas.length,
+      ignoradas
+    });
+
+  } catch (err) {
+    console.error('❌ Error movimiento lote:', err);
+    res.status(500).json({ error: 'Error interno aplicando movimiento' });
   }
-
-  await db.query(
-    `UPDATE barricas SET sala=$1, fila=$2, updated_at=CURRENT_TIMESTAMP
-     WHERE id = ANY($3::int[])`,
-    [sala, fila, validas.map(b => b.id)]
-  );
-
-  res.json({ ok: true, movidas: validas.map(b => b.id), ignoradas });
 });
+
 
 /* ===== EXCEL ===== */
 app.get('/excel/barricas', async (_, res) => {

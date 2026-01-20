@@ -84,8 +84,14 @@ document.getElementById('finish').onclick=async()=>{
   });
 
   const j=await r.json();
-  msg.textContent = j.ok ? "Movimiento aplicado correctamente" : j.error;
-  msg.style.color = j.ok ? "green" : "red";
+  if (j.ok) {
+  msg.textContent = `✅ Movimiento finalizado (${j.movidas} barricas)`;
+  msg.style.color = "green";
+} else {
+  msg.textContent = `❌ ${j.error}`;
+  msg.style.color = "red";
+}
+
   escaneadas=[]; loteActual=null; lista.innerHTML="";
   if(scanner) scanner.stop();
 };
