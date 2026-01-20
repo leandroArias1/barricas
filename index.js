@@ -4,6 +4,7 @@ const path = require('path');
 const QRCode = require('qrcode');
 const ExcelJS = require('exceljs');
 const db = require('./database');
+const { appendMovimiento } = require('./googleSheets');
 
 const app = express();
 app.use(cors());
@@ -52,6 +53,21 @@ app.post('/lote/movimiento', async (req, res) => {
     [barricas]
   );
 
+  await appendMovimiento([
+    b.numero_barrica,
+    loteBase,
+    accion,
+    operario,
+    b.nave ?? '',
+    b.sala,
+    b.fila,
+    sala,
+    fila,
+    new Date().toLocaleString('es-AR')
+]);
+
+
+  
   if (!r.rows.length) return res.status(400).json({ error: 'Barricas inexistentes' });
 
   const loteBase = r.rows[0].lote;
