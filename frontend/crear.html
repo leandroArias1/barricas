@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Crear Barrica</title>
+  <title>Crear Barricas - Viña Cobos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
@@ -105,13 +105,6 @@ button:hover {
       </select>
     </label>
 
-    <label>Nave
-      <select id="nave" required>
-        <option value="">Seleccionar nave</option>
-        <option value="1">Nave 1</option>
-        <option value="2">Nave 2</option>
-      </select>
-    </label>
 
     <label>Fila
       <input type="text" id="fila" placeholder="Ej: 15" required />
@@ -148,9 +141,9 @@ button:hover {
       numero_barrica: document.getElementById('numero_barrica').value,
       lote: document.getElementById('lote').value,
       sala: parseInt(document.getElementById('sala').value),
-      nave: parseInt(document.getElementById('nave').value),
       fila: document.getElementById('fila').value
     };
+
 
 
     const res = await fetch('/barricas', {
