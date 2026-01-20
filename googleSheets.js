@@ -8,12 +8,13 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: 'v4', auth });
 
-const SPREADSHEET_ID = process.env.SHEET_ID; // lo ponemos en Render
+const SPREADSHEET_ID = process.env.SHEET_ID;
+const SHEET_NAME = 'Movimientos'; // nombre exacto de la hoja
 
 async function appendMovimiento(row) {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Movimientos!A1',
+    range: SHEET_NAME,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [row],
