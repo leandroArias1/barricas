@@ -32,11 +32,19 @@
   <option>Nico</option><option>Joaco</option>
 </select>
 
+<label for="nave">Nave</label>
+<select id="nave">
+  <option value="1">Nave 1</option>
+  <option value="2">Nave 2</option>
+</select>
+
+
 <select id="sala">
   <option value="1">Sala 1</option>
   <option value="2">Sala 2</option>
   <option value="3">Sala 3</option>
 </select>
+
 
 <input id="fila" placeholder="Fila destino">
 
@@ -74,14 +82,15 @@ document.getElementById('finish').onclick=async()=>{
   const r=await fetch('/lote/movimiento',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      barricas:escaneadas,
-      accion:accion.value,
-      operario:operario.value,
-      sala:+sala.value,
-      fila:fila.value
-    })
-  });
+    body: JSON.stringify({
+    barricas: escaneadas,
+    accion: accion.value,
+    operario: operario.value,
+    nave: +document.getElementById('nave').value,
+    sala: +sala.value,
+    fila: fila.value
+  })
+});
 
   const j=await r.json();
   if (j.ok) {

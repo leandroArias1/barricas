@@ -39,7 +39,7 @@ app.post('/barricas', async (req, res) => {
       [numero_barrica, lote, sala, fila]
     );
 
-    // ✅ crear fila en Google Sheets (sin acción)
+    // crear fila inicial en Google Sheets
     await createBarricaSheet({
       numero_barrica,
       lote,
@@ -88,7 +88,7 @@ app.get('/barricas/:id', async (req, res) => {
 /* ===== MOVIMIENTO POR LOTE ===== */
 app.post('/lote/movimiento', async (req, res) => {
   try {
-    const { barricas, accion, operario, sala, fila } = req.body;
+    const { barricas, accion, operario, nave, sala, fila } = req.body;
 
     if (!barricas || !barricas.length) {
       return res.status(400).json({ error: 'No hay barricas escaneadas' });
@@ -116,15 +116,17 @@ app.post('/lote/movimiento', async (req, res) => {
           barrica_id,
           accion,
           operario,
+          nave,
           sala_origen,
           fila_origen,
           sala_destino,
           fila_destino
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           b.id,
           accion,
           operario,
+          nave,
           b.sala,
           b.fila,
           sala,
@@ -132,13 +134,13 @@ app.post('/lote/movimiento', async (req, res) => {
         ]
       );
 
-      // 2️⃣ ACTUALIZAR MISMA FILA en Google Sheets
+      // 2️⃣ Actualizar MISMA FILA en Google Sheets
       await updateMovimientoSheet({
         numero_barrica: b.numero_barrica,
         lote: b.lote,
         accion,
         operario,
-        nave: '',
+        nave,
         sala_origen: b.sala,
         fila_origen: b.fila,
         sala_destino: sala,
@@ -167,60 +169,6 @@ app.post('/lote/movimiento', async (req, res) => {
     console.error('❌ Error movimiento lote:', err);
     res.status(500).json({ error: 'Error interno aplicando movimiento' });
   }
-});
-
-/* ===== EXCEL LOCAL (solo debug, opcional) ===== */
-app.get('/excel/barricas', async (_, res) => {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Barricas');
-
-  sheet.columns = [
-    { header: 'Barrica', key: 'numero_barrica', width: 14 },
-    { header: 'Lote', key: 'lote', width: 12 },
-    { header: 'Sala actual', key: 'sala_actual', width: 12 },
-    { header: 'Fila actual', key: 'fila_actual', width: 12 },
-    { header: 'Acción', key: 'accion', width: 14 },
-    { header: 'Operario', key: 'operario', width: 14 },
-    { header: 'Sala origen', key: 'sala_origen', width: 12 },
-    { header: 'Fila origen', key: 'fila_origen', width: 12 },
-    { header: 'Sala destino', key: 'sala_destino', width: 12 },
-    { header: 'Fila destino', key: 'fila_destino', width: 12 },
-    { header: 'Fecha', key: 'fecha', width: 20 }
-  ];
-
-  const r = await db.query(`
-    SELECT
-      b.numero_barrica,
-      b.lote,
-      b.sala AS sala_actual,
-      b.fila AS fila_actual,
-      a.accion,
-      a.operario,
-      a.sala_origen,
-      a.fila_origen,
-      a.sala_destino,
-      a.fila_destino,
-      a.fecha
-    FROM barricas b
-    LEFT JOIN LATERAL (
-      SELECT *
-      FROM acciones
-      WHERE acciones.barrica_id = b.id
-      ORDER BY fecha DESC
-      LIMIT 1
-    ) a ON true
-    ORDER BY b.id
-  `);
-
-  r.rows.forEach(row => sheet.addRow(row));
-
-  res.setHeader(
-    'Content-Disposition',
-    'attachment; filename=barricas.xlsx'
-  );
-
-  await workbook.xlsx.write(res);
-  res.end();
 });
 
 /* ===== QR ===== */
