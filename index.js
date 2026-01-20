@@ -2,12 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const QRCode = require('qrcode');
-const ExcelJS = require('exceljs');
 const db = require('./database');
 
 const {
   createBarricaSheet,
-  updateMovimientoSheet
+  updateBarricaEstado,
+  appendMovimientoSheet
 } = require('./googleSheets');
 
 const app = express();
@@ -39,19 +39,12 @@ app.post('/barricas', async (req, res) => {
       [numero_barrica, lote, sala, fila]
     );
 
-    // crear fila inicial en Google Sheets
+    // Google Sheets (no rompe si falla)
     try {
-  await createBarricaSheet({
-    numero_barrica,
-    lote,
-    sala,
-    fila
-  });
-} catch (sheetErr) {
-  console.error('⚠️ No se pudo escribir en Sheets (crear barrica):', sheetErr.message);
-  // NO romper la creación
-}
-
+      await createBarricaSheet({ numero_barrica, lote, sala, fila });
+    } catch (e) {
+      console.warn('⚠️ Sheets (crear barrica) falló:', e.message);
+    }
 
     res.json({ barrica: r.rows[0] });
   } catch (err) {
@@ -72,19 +65,7 @@ app.get('/barricas/:id', async (req, res) => {
       return res.status(404).json({ error: 'Barrica no encontrada' });
     }
 
-    const a = await db.query(
-      `SELECT accion, operario, fecha
-       FROM acciones
-       WHERE barrica_id=$1
-       ORDER BY fecha DESC
-       LIMIT 1`,
-      [req.params.id]
-    );
-
-    res.json({
-      barrica: b.rows[0],
-      ultima_accion: a.rows[0] || null
-    });
+    res.json({ barrica: b.rows[0] });
   } catch (err) {
     console.error('❌ Error obteniendo barrica:', err);
     res.status(500).json({ error: 'Error obteniendo barrica' });
@@ -94,7 +75,7 @@ app.get('/barricas/:id', async (req, res) => {
 /* ===== MOVIMIENTO POR LOTE ===== */
 app.post('/lote/movimiento', async (req, res) => {
   try {
-    const { barricas, accion, operario, nave, sala, fila } = req.body;
+    const { barricas, accion, operario, sala, fila } = req.body;
 
     if (!barricas || !barricas.length) {
       return res.status(400).json({ error: 'No hay barricas escaneadas' });
@@ -113,26 +94,23 @@ app.post('/lote/movimiento', async (req, res) => {
 
     const loteBase = r.rows[0].lote;
     const validas = r.rows.filter(b => b.lote === loteBase);
-    const ignoradas = r.rows.filter(b => b.lote !== loteBase).map(b => b.id);
 
     for (const b of validas) {
-      // 1️⃣ Guardar acción en DB
+      // DB: histórico
       await db.query(
         `INSERT INTO acciones (
           barrica_id,
           accion,
           operario,
-          nave,
           sala_origen,
           fila_origen,
           sala_destino,
           fila_destino
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [
           b.id,
           accion,
           operario,
-          nave,
           b.sala,
           b.fila,
           sala,
@@ -140,21 +118,28 @@ app.post('/lote/movimiento', async (req, res) => {
         ]
       );
 
-      // 2️⃣ Actualizar MISMA FILA en Google Sheets
-      await updateMovimientoSheet({
+      // Sheets: histórico
+      await appendMovimientoSheet({
         numero_barrica: b.numero_barrica,
         lote: b.lote,
         accion,
         operario,
-        nave,
         sala_origen: b.sala,
         fila_origen: b.fila,
         sala_destino: sala,
         fila_destino: fila
       });
+
+      // Sheets: estado actual
+      await updateBarricaEstado({
+        numero_barrica: b.numero_barrica,
+        lote: b.lote,
+        sala,
+        fila
+      });
     }
 
-    // 3️⃣ Actualizar estado actual
+    // DB: estado actual
     await db.query(
       `UPDATE barricas
        SET sala=$1,
@@ -167,8 +152,7 @@ app.post('/lote/movimiento', async (req, res) => {
     res.json({
       ok: true,
       mensaje: 'Movimiento aplicado correctamente',
-      movidas: validas.length,
-      ignoradas
+      movidas: validas.length
     });
 
   } catch (err) {
