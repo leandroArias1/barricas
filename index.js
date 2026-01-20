@@ -40,12 +40,18 @@ app.post('/barricas', async (req, res) => {
     );
 
     // crear fila inicial en Google Sheets
-    await createBarricaSheet({
-      numero_barrica,
-      lote,
-      sala,
-      fila
-    });
+    try {
+  await createBarricaSheet({
+    numero_barrica,
+    lote,
+    sala,
+    fila
+  });
+} catch (sheetErr) {
+  console.error('⚠️ No se pudo escribir en Sheets (crear barrica):', sheetErr.message);
+  // NO romper la creación
+}
+
 
     res.json({ barrica: r.rows[0] });
   } catch (err) {
