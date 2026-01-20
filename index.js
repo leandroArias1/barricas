@@ -4,7 +4,11 @@ const path = require('path');
 const QRCode = require('qrcode');
 const ExcelJS = require('exceljs');
 const db = require('./database');
-const { appendMovimiento } = require('./googleSheets');
+
+const {
+  createBarricaSheet,
+  updateMovimientoSheet
+} = require('./googleSheets');
 
 const app = express();
 app.use(cors());
@@ -34,6 +38,14 @@ app.post('/barricas', async (req, res) => {
        RETURNING *`,
       [numero_barrica, lote, sala, fila]
     );
+
+    // ✅ crear fila en Google Sheets (sin acción)
+    await createBarricaSheet({
+      numero_barrica,
+      lote,
+      sala,
+      fila
+    });
 
     res.json({ barrica: r.rows[0] });
   } catch (err) {
@@ -120,22 +132,21 @@ app.post('/lote/movimiento', async (req, res) => {
         ]
       );
 
-      // 2️⃣ Guardar movimiento en Google Sheets
-      await appendMovimiento([
-        b.numero_barrica,
-        loteBase,
+      // 2️⃣ ACTUALIZAR MISMA FILA en Google Sheets
+      await updateMovimientoSheet({
+        numero_barrica: b.numero_barrica,
+        lote: b.lote,
         accion,
         operario,
-        '',              // nave (reservado)
-        b.sala,
-        b.fila,
-        sala,
-        fila,
-        new Date().toLocaleString('es-AR')
-      ]);
+        nave: '',
+        sala_origen: b.sala,
+        fila_origen: b.fila,
+        sala_destino: sala,
+        fila_destino: fila
+      });
     }
 
-    // 3️⃣ Actualizar estado actual de barricas
+    // 3️⃣ Actualizar estado actual
     await db.query(
       `UPDATE barricas
        SET sala=$1,
@@ -158,7 +169,7 @@ app.post('/lote/movimiento', async (req, res) => {
   }
 });
 
-/* ===== EXCEL (solo debug / histórico local) ===== */
+/* ===== EXCEL LOCAL (solo debug, opcional) ===== */
 app.get('/excel/barricas', async (_, res) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Barricas');
