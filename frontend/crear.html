@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <title>Crear Barricas - Viña Cobos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2f6f4e">
+
 
   <style>
     :root {
@@ -84,6 +87,12 @@ button:hover {
   </style>
 </head>
 <body>
+  <script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+
 
   <h1>Crear Barrica</h1>
 
