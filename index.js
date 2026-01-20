@@ -137,7 +137,6 @@ app.post('/lote/movimiento', async (req, res) => {
       await updateBarricaEstado({
         numero_barrica: b.numero_barrica,
         lote: b.lote,
-        nave,
         sala,
         fila
       });

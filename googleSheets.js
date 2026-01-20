@@ -29,19 +29,14 @@ async function findRow(sheet, numero_barrica) {
 /* ===== BARRICAS (estado actual) ===== */
 async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
   const row = await findRow(SHEET_BARRICAS, numero_barrica);
-  if (row) return; // no duplicar
+  if (row) return;
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: `${SHEET_BARRICAS}!A1`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
-      values: [[
-        numero_barrica, // A
-        lote,           // B
-        sala,           // C (sala actual)
-        fila            // D (fila actual)
-      ]]
+      values: [[numero_barrica, lote, sala, fila]]
     }
   });
 }
@@ -68,25 +63,25 @@ async function appendMovimientoSheet(data) {
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        data.numero_barrica,
-        data.lote,
-        data.sala_origen,
-        data.fila_origen,
-        data.accion,
-        data.operario,
-        '',
-        data.sala_origen,
-        data.fila_origen,
-        data.sala_destino,
-        data.fila_destino,
-        new Date().toLocaleString('es-AR')
+        data.numero_barrica,          // A
+        data.lote,                    // B
+        data.sala_destino,            // C (sala actual)
+        data.fila_destino,            // D (fila actual)
+        data.accion,                  // E
+        data.operario,                // F
+        data.nave || '',              // G ✅
+        data.sala_origen,             // H
+        data.fila_origen,             // I
+        data.sala_destino,            // J
+        data.fila_destino,            // K
+        new Date().toLocaleString('es-AR') // L
       ]]
     }
   });
 }
 
 module.exports = {
-  createBarricaSheet,     // 👈 ahora EXISTE
-  updateBarricaEstado,    // queda para usar después
+  createBarricaSheet,
+  updateBarricaEstado,
   appendMovimientoSheet
 };
