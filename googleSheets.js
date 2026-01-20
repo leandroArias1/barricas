@@ -27,16 +27,21 @@ async function findRow(sheet, numero_barrica) {
 }
 
 /* ===== BARRICAS (estado actual) ===== */
-async function createBarricaEstado({ numero_barrica, lote, sala, fila }) {
+async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
   const row = await findRow(SHEET_BARRICAS, numero_barrica);
-  if (row) return;
+  if (row) return; // no duplicar
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: `${SHEET_BARRICAS}!A1`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
-      values: [[numero_barrica, lote, sala, fila]]
+      values: [[
+        numero_barrica, // A
+        lote,           // B
+        sala,           // C (sala actual)
+        fila            // D (fila actual)
+      ]]
     }
   });
 }
@@ -55,7 +60,7 @@ async function updateBarricaEstado({ numero_barrica, lote, sala, fila }) {
   });
 }
 
-/* ===== MOVIMIENTOS (histórico, igual que ahora) ===== */
+/* ===== MOVIMIENTOS (histórico) ===== */
 async function updateMovimientoSheet(data) {
   const row = await findRow(SHEET_MOVIMIENTOS, data.numero_barrica);
   if (!row) return;
@@ -84,7 +89,7 @@ async function updateMovimientoSheet(data) {
 }
 
 module.exports = {
-  createBarricaEstado,
-  updateBarricaEstado,
+  createBarricaSheet,     // 👈 ahora EXISTE
+  updateBarricaEstado,    // queda para usar después
   updateMovimientoSheet
 };
