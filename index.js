@@ -10,13 +10,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-/* ================= RUTAS FRONT ================= */
 app.get('/', (_, res) => res.send('Backend Bodega funcionando'));
 app.get('/crear', (_, res) => res.sendFile(path.join(__dirname, 'frontend/crear.html')));
 app.get('/editar', (_, res) => res.sendFile(path.join(__dirname, 'frontend/editar.html')));
 app.get('/lote', (_, res) => res.sendFile(path.join(__dirname, 'frontend/lote.html')));
 
-/* ================= CREAR BARRICA ================= */
+/* ===== CREAR BARRICA ===== */
 app.post('/barricas', async (req, res) => {
   const { numero_barrica, lote, sala, fila } = req.body;
 
@@ -29,79 +28,31 @@ app.post('/barricas', async (req, res) => {
   res.json({ barrica: r.rows[0] });
 });
 
-/* ================= OBTENER BARRICA ================= */
+/* ===== OBTENER BARRICA ===== */
 app.get('/barricas/:id', async (req, res) => {
-  const { id } = req.params;
-
-  const b = await db.query(`SELECT * FROM barricas WHERE id=$1`, [id]);
+  const b = await db.query(`SELECT * FROM barricas WHERE id=$1`, [req.params.id]);
   if (!b.rows.length) return res.status(404).json({ error: 'Barrica no encontrada' });
 
   const a = await db.query(
     `SELECT accion, operario, fecha
-     FROM acciones
-     WHERE barrica_id=$1
-     ORDER BY fecha DESC
-     LIMIT 1`,
-    [id]
+     FROM acciones WHERE barrica_id=$1
+     ORDER BY fecha DESC LIMIT 1`,
+    [req.params.id]
   );
 
-  res.json({
-    barrica: b.rows[0],
-    ultima_accion: a.rows[0] || null
-  });
+  res.json({ barrica: b.rows[0], ultima_accion: a.rows[0] || null });
 });
 
-/* ================= EDITAR INDIVIDUAL ================= */
-app.put('/barricas/:id', async (req, res) => {
-  const { sala, fila, accion, operario } = req.body;
-  const { id } = req.params;
-
-  const actual = await db.query(
-    `SELECT sala, fila, nave FROM barricas WHERE id=$1`,
-    [id]
-  );
-
-  if (!actual.rows.length) {
-    return res.status(404).json({ error: 'Barrica no encontrada' });
-  }
-
-  const { sala: salaOrigen, fila: filaOrigen, nave } = actual.rows[0];
-
-  await db.query(
-    `INSERT INTO acciones (
-      barrica_id, accion, operario, nave,
-      sala_origen, fila_origen,
-      sala_destino, fila_destino
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [id, accion, operario, nave, salaOrigen, filaOrigen, sala, fila]
-  );
-
-  await db.query(
-    `UPDATE barricas
-     SET sala=$1, fila=$2, updated_at=CURRENT_TIMESTAMP
-     WHERE id=$3`,
-    [sala, fila, id]
-  );
-
-  res.json({ ok: true });
-});
-
-/* ================= MOVIMIENTO POR LOTE ================= */
+/* ===== MOVIMIENTO POR LOTE ===== */
 app.post('/lote/movimiento', async (req, res) => {
-  const { barricas, accion, operario, sala, nave, fila } = req.body;
-
-  if (!barricas || !barricas.length) {
-    return res.status(400).json({ error: 'No hay barricas escaneadas' });
-  }
+  const { barricas, accion, operario, sala, fila } = req.body;
 
   const r = await db.query(
-    `SELECT id, lote, sala, fila, nave FROM barricas WHERE id = ANY($1::int[])`,
+    `SELECT id, lote, sala, fila FROM barricas WHERE id = ANY($1::int[])`,
     [barricas]
   );
 
-  if (!r.rows.length) {
-    return res.status(400).json({ error: 'Barricas inexistentes' });
-  }
+  if (!r.rows.length) return res.status(400).json({ error: 'Barricas inexistentes' });
 
   const loteBase = r.rows[0].lote;
   const validas = r.rows.filter(b => b.lote === loteBase);
@@ -110,86 +61,62 @@ app.post('/lote/movimiento', async (req, res) => {
   for (const b of validas) {
     await db.query(
       `INSERT INTO acciones (
-        barrica_id, accion, operario, nave,
+        barrica_id, accion, operario,
         sala_origen, fila_origen,
         sala_destino, fila_destino
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [
-        b.id,
-        accion,
-        operario,
-        b.nave,
-        b.sala,
-        b.fila,
-        sala,
-        fila
-      ]
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [b.id, accion, operario, b.sala, b.fila, sala, fila]
     );
   }
 
   await db.query(
-    `UPDATE barricas
-     SET sala=$1, fila=$2, updated_at=CURRENT_TIMESTAMP
+    `UPDATE barricas SET sala=$1, fila=$2, updated_at=CURRENT_TIMESTAMP
      WHERE id = ANY($3::int[])`,
     [sala, fila, validas.map(b => b.id)]
   );
 
-  res.json({
-    ok: true,
-    lote: loteBase,
-    movidas: validas.map(b => b.id),
-    ignoradas
-  });
+  res.json({ ok: true, movidas: validas.map(b => b.id), ignoradas });
 });
 
-/* ================= EXCEL ================= */
+/* ===== EXCEL ===== */
 app.get('/excel/barricas', async (_, res) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Movimientos');
 
   sheet.columns = [
-    { header:'Barrica', key:'numero_barrica', width:14 },
-    { header:'Lote', key:'lote', width:12 },
-    { header:'Acción', key:'accion', width:14 },
-    { header:'Operario', key:'operario', width:14 },
-    { header:'Nave', key:'nave', width:8 },
-    { header:'Sala origen', key:'sala_origen', width:12 },
-    { header:'Fila origen', key:'fila_origen', width:12 },
-    { header:'Sala destino', key:'sala_destino', width:12 },
-    { header:'Fila destino', key:'fila_destino', width:12 },
-    { header:'Fecha', key:'fecha', width:20 }
+    { header:'Barrica', key:'numero_barrica' },
+    { header:'Lote', key:'lote' },
+    { header:'Acción', key:'accion' },
+    { header:'Operario', key:'operario' },
+    { header:'Sala origen', key:'sala_origen' },
+    { header:'Fila origen', key:'fila_origen' },
+    { header:'Sala destino', key:'sala_destino' },
+    { header:'Fila destino', key:'fila_destino' },
+    { header:'Fecha', key:'fecha' }
   ];
 
   const r = await db.query(`
-    SELECT
-      b.numero_barrica,
-      b.lote,
-      a.accion,
-      a.operario,
-      a.nave,
-      a.sala_origen,
-      a.fila_origen,
-      a.sala_destino,
-      a.fila_destino,
-      a.fecha
+    SELECT b.numero_barrica, b.lote,
+           a.accion, a.operario,
+           a.sala_origen, a.fila_origen,
+           a.sala_destino, a.fila_destino,
+           a.fecha
     FROM acciones a
     JOIN barricas b ON b.id = a.barrica_id
     ORDER BY a.fecha DESC
   `);
 
   r.rows.forEach(row => sheet.addRow(row));
-
-  res.setHeader('Content-Disposition', 'attachment; filename=movimientos_barricas.xlsx');
+  res.setHeader('Content-Disposition', 'attachment; filename=movimientos.xlsx');
   await workbook.xlsx.write(res);
   res.end();
 });
 
-/* ================= QR ================= */
+/* ===== QR ===== */
 app.get('/qr/:id', async (req, res) => {
   const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
   const url = `${base}/editar?id=${req.params.id}`;
-  const qr = await QRCode.toDataURL(url);
-  res.json({ qrImage: qr });
+  res.json({ qrImage: await QRCode.toDataURL(url) });
 });
 
 const PORT = process.env.PORT || 3000;
