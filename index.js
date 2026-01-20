@@ -75,7 +75,7 @@ app.get('/barricas/:id', async (req, res) => {
 /* ===== MOVIMIENTO POR LOTE ===== */
 app.post('/lote/movimiento', async (req, res) => {
   try {
-    const { barricas, accion, operario, sala, fila } = req.body;
+    const { barricas, accion, operario, sala,nave, fila } = req.body;
 
     if (!barricas || !barricas.length) {
       return res.status(400).json({ error: 'No hay barricas escaneadas' });
@@ -102,15 +102,17 @@ app.post('/lote/movimiento', async (req, res) => {
           barrica_id,
           accion,
           operario,
+          nave,
           sala_origen,
           fila_origen,
           sala_destino,
           fila_destino
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           b.id,
           accion,
           operario,
+          nave,
           b.sala,
           b.fila,
           sala,
@@ -124,6 +126,7 @@ app.post('/lote/movimiento', async (req, res) => {
         lote: b.lote,
         accion,
         operario,
+        nave,
         sala_origen: b.sala,
         fila_origen: b.fila,
         sala_destino: sala,
@@ -134,6 +137,7 @@ app.post('/lote/movimiento', async (req, res) => {
       await updateBarricaEstado({
         numero_barrica: b.numero_barrica,
         lote: b.lote,
+        nave,
         sala,
         fila
       });
