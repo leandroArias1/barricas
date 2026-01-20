@@ -85,12 +85,13 @@ document.getElementById('finish').onclick=async()=>{
 
   const j=await r.json();
   if (j.ok) {
-  msg.textContent = `✅ Movimiento finalizado (${j.movidas} barricas)`;
+  msg.textContent = "✅ Movimiento aplicado correctamente";
   msg.style.color = "green";
 } else {
-  msg.textContent = `❌ ${j.error}`;
+  msg.textContent = j.error || "❌ Error interno aplicando movimiento";
   msg.style.color = "red";
 }
+
 
   escaneadas=[]; loteActual=null; lista.innerHTML="";
   if(scanner) scanner.stop();
