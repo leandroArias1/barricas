@@ -8,62 +8,61 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: 'v4', auth });
 
 const SPREADSHEET_ID = process.env.SHEET_ID;
-const SHEET_NAME = 'Movimientos'; // 🔥 ESTE ERA EL ERROR
 
-/* ===== BUSCAR FILA POR NÚMERO DE BARRICA ===== */
-async function findRow(numero_barrica) {
+const SHEET_MOVIMIENTOS = 'Movimientos';
+const SHEET_BARRICAS = 'Barricas';
+
+/* ===== buscar fila por barrica ===== */
+async function findRow(sheet, numero_barrica) {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:A`,
+    range: `${sheet}!A:A`,
   });
 
   const rows = res.data.values || [];
-
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i][0] === numero_barrica) {
-      return i + 1; // Sheets empieza en 1
-    }
+    if (rows[i][0] === numero_barrica) return i + 1;
   }
-
   return null;
 }
 
-/* ===== CREAR BARRICA (SI NO EXISTE) ===== */
-async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
-  const row = await findRow(numero_barrica);
-  if (row) return; // no duplicar
+/* ===== BARRICAS (estado actual) ===== */
+async function createBarricaEstado({ numero_barrica, lote, sala, fila }) {
+  const row = await findRow(SHEET_BARRICAS, numero_barrica);
+  if (row) return;
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A1`,
+    range: `${SHEET_BARRICAS}!A1`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
-      values: [[
-        numero_barrica, // A
-        lote,           // B
-        sala,           // C
-        fila,           // D
-        '',             // E acción
-        '',             // F operario
-        '',             // G nave
-        '',             // H sala origen
-        '',             // I fila origen
-        '',             // J sala destino
-        '',             // K fila destino
-        new Date().toLocaleString('es-AR') // L fecha
-      ]]
+      values: [[numero_barrica, lote, sala, fila]]
     }
   });
 }
 
-/* ===== ACTUALIZAR MOVIMIENTO (MISMA FILA) ===== */
-async function updateMovimientoSheet(data) {
-  const row = await findRow(data.numero_barrica);
+async function updateBarricaEstado({ numero_barrica, lote, sala, fila }) {
+  const row = await findRow(SHEET_BARRICAS, numero_barrica);
   if (!row) return;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${row}:L${row}`,
+    range: `${SHEET_BARRICAS}!A${row}:D${row}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[numero_barrica, lote, sala, fila]]
+    }
+  });
+}
+
+/* ===== MOVIMIENTOS (histórico, igual que ahora) ===== */
+async function updateMovimientoSheet(data) {
+  const row = await findRow(SHEET_MOVIMIENTOS, data.numero_barrica);
+  if (!row) return;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_MOVIMIENTOS}!A${row}:L${row}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
@@ -73,7 +72,7 @@ async function updateMovimientoSheet(data) {
         data.fila_destino,
         data.accion,
         data.operario,
-        data.nave || '',
+        '',
         data.sala_origen,
         data.fila_origen,
         data.sala_destino,
@@ -85,6 +84,7 @@ async function updateMovimientoSheet(data) {
 }
 
 module.exports = {
-  createBarricaSheet,
+  createBarricaEstado,
+  updateBarricaEstado,
   updateMovimientoSheet
 };
