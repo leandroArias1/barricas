@@ -8,20 +8,20 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: 'v4', auth });
 
 const SPREADSHEET_ID = process.env.SHEET_ID;
-const SHEET_NAME = 'Barricas';
+const SHEET_NAME = 'Movimientos'; // 🔥 ESTE ERA EL ERROR
 
-/* ===== BUSCAR FILA POR NUMERO DE BARRICA ===== */
+/* ===== BUSCAR FILA POR NÚMERO DE BARRICA ===== */
 async function findRow(numero_barrica) {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A1:A1000`, // ✅ rango válido
+    range: `${SHEET_NAME}!A:A`,
   });
 
   const rows = res.data.values || [];
 
   for (let i = 0; i < rows.length; i++) {
     if (rows[i][0] === numero_barrica) {
-      return i + 1; // filas empiezan en 1
+      return i + 1; // Sheets empieza en 1
     }
   }
 
@@ -31,7 +31,7 @@ async function findRow(numero_barrica) {
 /* ===== CREAR BARRICA (SI NO EXISTE) ===== */
 async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
   const row = await findRow(numero_barrica);
-  if (row) return; // ya existe → no duplicar
+  if (row) return; // no duplicar
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -39,12 +39,18 @@ async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        numero_barrica,
-        lote,
-        sala,
-        fila,
-        '', '', '', '', '', '', '',
-        new Date().toLocaleString('es-AR')
+        numero_barrica, // A
+        lote,           // B
+        sala,           // C
+        fila,           // D
+        '',             // E acción
+        '',             // F operario
+        '',             // G nave
+        '',             // H sala origen
+        '',             // I fila origen
+        '',             // J sala destino
+        '',             // K fila destino
+        new Date().toLocaleString('es-AR') // L fecha
       ]]
     }
   });
@@ -57,7 +63,7 @@ async function updateMovimientoSheet(data) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${row}:L${row}`, // ✅ rango válido
+    range: `${SHEET_NAME}!A${row}:L${row}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
