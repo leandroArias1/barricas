@@ -10,22 +10,28 @@ const sheets = google.sheets({ version: 'v4', auth });
 const SPREADSHEET_ID = process.env.SHEET_ID;
 const SHEET_NAME = 'Barricas';
 
-/* Buscar fila por número de barrica */
-async function findRow(numeroBarrica) {
+/* ===== BUSCAR FILA POR NUMERO DE BARRICA ===== */
+async function findRow(numero_barrica) {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:A`,
+    range: `${SHEET_NAME}!A1:A1000`, // ✅ rango válido
   });
 
   const rows = res.data.values || [];
-  const idx = rows.findIndex(r => r[0] === numeroBarrica);
-  return idx === -1 ? null : idx + 1;
+
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][0] === numero_barrica) {
+      return i + 1; // filas empiezan en 1
+    }
+  }
+
+  return null;
 }
 
-/* Crear barrica (si no existe) */
+/* ===== CREAR BARRICA (SI NO EXISTE) ===== */
 async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
   const row = await findRow(numero_barrica);
-  if (row) return; // ya existe
+  if (row) return; // ya existe → no duplicar
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -37,20 +43,21 @@ async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
         lote,
         sala,
         fila,
-        '', '', '', '', '', '', '', ''
+        '', '', '', '', '', '', '',
+        new Date().toLocaleString('es-AR')
       ]]
     }
   });
 }
 
-/* Actualizar movimiento (MISMA FILA) */
+/* ===== ACTUALIZAR MOVIMIENTO (MISMA FILA) ===== */
 async function updateMovimientoSheet(data) {
   const row = await findRow(data.numero_barrica);
   if (!row) return;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A${row}:L${row}`,
+    range: `${SHEET_NAME}!A${row}:L${row}`, // ✅ rango válido
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
@@ -60,7 +67,7 @@ async function updateMovimientoSheet(data) {
         data.fila_destino,
         data.accion,
         data.operario,
-        data.nave ?? '',
+        data.nave || '',
         data.sala_origen,
         data.fila_origen,
         data.sala_destino,
