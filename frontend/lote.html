@@ -12,6 +12,7 @@
     h1 { text-align:center; }
     select,input,button { width:100%; padding:10px; margin-top:10px; }
     #msg { font-weight:bold; margin-top:10px; text-align:center; }
+    li { margin-top: 4px; }
   </style>
 </head>
 
@@ -41,7 +42,7 @@ if ('serviceWorker' in navigator) {
 </select>
 
 <label>Lote</label>
-<input id="lote" placeholder="Ej: 25 / 40 / 100">
+<input id="lote" placeholder="Ej: 25100 / 25101 / 100">
 
 <label>Posición</label>
 <select id="posicion">
@@ -74,11 +75,14 @@ if ('serviceWorker' in navigator) {
 <script>
 let escaneadas = [];
 let scanner;
+
 const lista = document.getElementById('lista');
 const msg = document.getElementById('msg');
 
 document.getElementById('start').onclick = () => {
-  if (!lote.value) {
+  const loteIngresado = lote.value.trim();
+
+  if (!loteIngresado) {
     msg.textContent = "❌ Debe ingresar un lote antes de escanear";
     msg.style.color = "red";
     return;
@@ -105,17 +109,20 @@ document.getElementById('start').onclick = () => {
 
         const b = (await r.json()).barrica;
 
-        // 🔴 VALIDACIÓN DE LOTE EN TIEMPO REAL
-        if (String(b.lote) !== String(lote.value)) {
+        const loteBarrica = String(b.lote).trim();
+
+        // 🔴 VALIDACIÓN DE LOTE EN TIEMPO REAL (FIX DEFINITIVO)
+        if (loteBarrica !== loteIngresado) {
           li(
-            `❌ Barrica ${b.numero_barrica} es del lote ${b.lote} (esperado ${lote.value})`,
+            `❌ Barrica ${b.numero_barrica} es del lote ${loteBarrica} (esperado ${loteIngresado})`,
             "red"
           );
           return;
         }
 
         escaneadas.push(id);
-        li(`✔ Barrica ${b.numero_barrica} agregada`);
+        li(`✔ Barrica ${b.numero_barrica} agregada`, "green");
+
       } catch {
         li("❌ Error leyendo QR", "red");
       }
@@ -137,7 +144,7 @@ document.getElementById('finish').onclick = async () => {
       barricas: escaneadas,
       accion: accion.value,
       operario: operario.value,
-      lote: lote.value,
+      lote: lote.value.trim(),
       posicion: posicion.value,
       nave: +nave.value,
       sala: +sala.value,
