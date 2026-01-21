@@ -1,104 +1,120 @@
-# 📦 Sistema de Gestión de Barricas con QR – Bodega
+🍷 Sistema de Gestión de Barricas – Bodega
 
-Sistema web interno para la gestión de barricas en bodega, orientado a uso desde celular, con escaneo QR, movimientos por lote y registro histórico en Google Sheets.
+Aplicación web progresiva (PWA) desarrollada para la gestión interna de barricas en bodega, permitiendo el control de ubicación, movimientos, trasiegos y trazabilidad completa mediante QR y Google Sheets.
 
-El objetivo es **simplificar el control de ubicación y trazabilidad** de barricas sin depender de sistemas complejos.
+🚀 Funcionalidades principales
+📦 Gestión de Barricas
 
----
+Creación de barricas con:
 
-## 🚀 Funcionalidades principales
+Número de barrica
 
-### ➕ Creación de barricas
-- Alta de barricas con:
-  - Número de barrica
-  - Lote
-  - Sala
-  - Fila
-- Generación automática de QR único por barrica
-- Registro inicial en base de datos y Google Sheets
+Lote
 
----
+Nave
 
-### 📷 Escaneo QR y movimientos por lote
-- Escaneo de barricas mediante cámara del celular
-- Agrupación automática por lote
-- Aplicación de acciones por lote:
-  - Movimiento
-  - Trasiego
-- Registro de:
-  - Sala origen
-  - Fila origen
-  - Sala destino
-  - Fila destino
-  - Operario
-  - Fecha
+Sala
 
----
+Fila
 
-### 📊 Google Sheets integrado
-El sistema escribe automáticamente en un Google Sheet compartido con dos hojas:
+Generación automática de QR único por barrica
 
-#### 🗂️ Hoja **Barricas**
-- Estado actual de cada barrica
-- Se actualiza automáticamente con cada movimiento
-- Campos:
-  - Barrica
-  - Lote
-  - Sala actual
-  - Fila actual
+Registro inicial en Google Sheets (hoja Barricas)
 
-#### 🧾 Hoja **Movimientos**
-- Histórico completo (no se pisa)
-- Cada acción genera una nueva fila
-- Permite auditoría y trazabilidad total
+📷 Escaneo por Lote (QR)
 
----
+Escaneo masivo mediante cámara (celular o tablet)
 
-## 🛠️ Tecnologías usadas
+Validación en tiempo real:
 
-### Backend
-- Node.js
-- Express
-- PostgreSQL
-- Google Sheets API
-- QRCode
+❌ Avisa si una barrica pertenece a otro lote
 
-### Frontend
-- HTML
-- CSS
-- JavaScript vanilla
-- html5-qrcode
+❌ No permite errores operativos
 
-### Infraestructura
-- Deploy en Render
-- Google Drive / Google Sheets
-- Service Account para escritura segura
+Flujo doble:
 
----
+Origen → se registra salida
 
-## 📱 Uso desde celular
-- Optimizado para uso móvil
-- Pensado para operar directamente en bodega
-- Ideal para escaneo rápido de QR
+Destino → se registra ingreso y se actualiza estado
 
----
+🔁 Movimientos y Trasiegos
 
-## 🔐 Seguridad
-- Acceso al Sheet mediante Service Account
-- Base de datos con relaciones y restricciones
-- El sistema sigue funcionando aunque Sheets falle (fail-safe)
+Acciones disponibles:
 
----
+Movimiento
 
-## 📈 Posibles mejoras futuras
-- Convertir en PWA (instalable como app)
-- Roles de usuario
-- Filtros y reportes
-- Dashboard visual
-- Exportación automática
+Trasiego
 
----
+Registro de:
 
-## 👤 Autor
-Desarrollado como sistema real de gestión interna para bodega.
+Operario
 
+Nave
+
+Sala y fila de origen
+
+Sala y fila de destino
+
+Fecha y hora
+
+Histórico completo en Google Sheets (hoja Movimientos)
+
+📊 Google Sheets (automático)
+
+Hoja Barricas
+
+Estado actual de cada barrica
+
+Sala y fila siempre actualizadas
+
+Hoja Movimientos
+
+Histórico inalterable
+
+Cada acción queda registrada
+
+Si Google Sheets falla momentáneamente, el sistema no se rompe.
+
+📱 PWA – Aplicación Web Progresiva
+
+Instalación directa en el celular
+
+Funciona como app nativa
+
+Optimizada para uso en bodega
+
+Caché controlado y versionado
+
+🛠️ Stack tecnológico
+
+Frontend: HTML + JS (QR Scanner)
+
+Backend: Node.js + Express
+
+Base de datos: PostgreSQL
+
+Integraciones: Google Sheets API
+
+PWA: Service Worker + Manifest
+
+Deploy: Cloud / Hosting dedicado
+
+🔐 Seguridad y robustez
+
+Validaciones en frontend y backend
+
+Control de lotes para evitar errores humanos
+
+Registro histórico inmutable
+
+Código preparado para escalar
+
+📌 Estado del proyecto
+
+✅ Funcional
+✅ Probado en entorno real
+✅ Listo para uso productivo
+
+👨‍💻 Autor
+
+Desarrollado como sistema interno de gestión para bodega, enfocado en trazabilidad, simplicidad operativa y reducción de errores humanos.
