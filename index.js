@@ -17,12 +17,15 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 
 /* ===== RUTAS FRONT ===== */
 app.get('/', (_, res) => res.send('Backend Bodega funcionando'));
+
 app.get('/crear', (_, res) =>
   res.sendFile(path.join(__dirname, 'frontend/crear.html'))
 );
+
 app.get('/editar', (_, res) =>
   res.sendFile(path.join(__dirname, 'frontend/editar.html'))
 );
+
 app.get('/lote', (_, res) =>
   res.sendFile(path.join(__dirname, 'frontend/lote.html'))
 );
@@ -39,6 +42,7 @@ app.post('/barricas', async (req, res) => {
       [numero_barrica, lote, sala, fila]
     );
 
+    // Sheets (no rompe si falla)
     try {
       await createBarricaSheet({ numero_barrica, lote, sala, fila });
     } catch (e) {
@@ -79,7 +83,7 @@ app.post('/lote/movimiento', async (req, res) => {
       accion,
       operario,
       lote,
-      posicion, // 👈 origen | destino
+      posicion, // origen | destino
       nave,
       sala,
       fila
@@ -89,12 +93,16 @@ app.post('/lote/movimiento', async (req, res) => {
       return res.status(400).json({ error: 'No hay barricas escaneadas' });
     }
 
-    if (!posicion || !['origen', 'destino'].includes(posicion)) {
+    if (!lote) {
+      return res.status(400).json({ error: 'Lote obligatorio' });
+    }
+
+    if (!['origen', 'destino'].includes(posicion)) {
       return res.status(400).json({ error: 'Posición inválida' });
     }
 
     const r = await db.query(
-      `SELECT id, numero_barrica, sala, fila
+      `SELECT id, numero_barrica, lote, sala, fila
        FROM barricas
        WHERE id = ANY($1::int[])`,
       [barricas]
@@ -104,8 +112,18 @@ app.post('/lote/movimiento', async (req, res) => {
       return res.status(400).json({ error: 'Barricas inexistentes' });
     }
 
-    for (const b of r.rows) {
-      /* ===== DB: histórico SIEMPRE ===== */
+    // Validar lote
+    const validas = r.rows.filter(b => b.lote === lote);
+    const rechazadas = r.rows.filter(b => b.lote !== lote);
+
+    if (!validas.length) {
+      return res.status(400).json({
+        error: 'Ninguna barrica pertenece al lote indicado'
+      });
+    }
+
+    for (const b of validas) {
+      /* ===== DB: histórico ===== */
       await db.query(
         `INSERT INTO acciones (
           barrica_id,
@@ -129,7 +147,7 @@ app.post('/lote/movimiento', async (req, res) => {
         ]
       );
 
-      /* ===== Sheets: histórico SIEMPRE ===== */
+      /* ===== Sheets: histórico ===== */
       await appendMovimientoSheet({
         numero_barrica: b.numero_barrica,
         lote,
@@ -142,7 +160,7 @@ app.post('/lote/movimiento', async (req, res) => {
         fila_destino: posicion === 'destino' ? fila : ''
       });
 
-      /* ===== SOLO EN DESTINO: actualizar estado ===== */
+      /* ===== SOLO DESTINO: actualizar estado ===== */
       if (posicion === 'destino') {
         await updateBarricaEstado({
           numero_barrica: b.numero_barrica,
@@ -153,7 +171,7 @@ app.post('/lote/movimiento', async (req, res) => {
       }
     }
 
-    /* ===== DB estado actual SOLO EN DESTINO ===== */
+    /* ===== DB estado actual SOLO DESTINO ===== */
     if (posicion === 'destino') {
       await db.query(
         `UPDATE barricas
@@ -161,14 +179,15 @@ app.post('/lote/movimiento', async (req, res) => {
              fila=$2,
              updated_at=CURRENT_TIMESTAMP
          WHERE id = ANY($3::int[])`,
-        [sala, fila, r.rows.map(b => b.id)]
+        [sala, fila, validas.map(b => b.id)]
       );
     }
 
     res.json({
       ok: true,
       mensaje: `Escaneo ${posicion} registrado correctamente`,
-      cantidad: r.rows.length
+      cantidad: validas.length,
+      rechazadas: rechazadas.map(b => b.numero_barrica)
     });
 
   } catch (err) {
