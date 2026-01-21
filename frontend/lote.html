@@ -5,8 +5,7 @@
   <title>Viña Cobos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#2f6f4e">
-
+  <meta name="theme-color" content="#2f6f4e">
 
   <style>
     body { font-family: Arial; background:#f4f6f5; padding:20px; }
@@ -17,105 +16,137 @@
 </head>
 
 <body>
-  <script>
+<script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
 </script>
 
-
 <h1>Viña Cobos</h1>
+
 <div id="msg"></div>
 <div id="reader" style="max-width:400px;"></div>
 
-<label for="accion">Acción</label>
+<label>Acción</label>
 <select id="accion">
   <option value="Movimiento">Movimiento</option>
   <option value="Trasiego">Trasiego</option>
 </select>
 
-<label for="operario">Operario</label>
+<label>Operario</label>
 <select id="operario">
   <option>Ricardo</option><option>Ema</option><option>Vale</option>
   <option>Franco</option><option>Bruno</option><option>Alex</option>
   <option>Nico</option><option>Joaco</option>
 </select>
 
-<label for="nave">Nave</label>
+<label>Lote</label>
+<input id="lote" placeholder="Ej: 25 / 40 / 100">
+
+<label>Posición</label>
+<select id="posicion">
+  <option value="origen">Origen</option>
+  <option value="destino">Destino</option>
+</select>
+
+<label>Nave</label>
 <select id="nave">
   <option value="1">Nave 1</option>
   <option value="2">Nave 2</option>
 </select>
 
-
+<label>Sala</label>
 <select id="sala">
   <option value="1">Sala 1</option>
   <option value="2">Sala 2</option>
   <option value="3">Sala 3</option>
 </select>
 
-
-<input id="fila" placeholder="Fila destino">
+<label>Fila</label>
+<input id="fila" placeholder="Fila">
 
 <button id="start">Iniciar escaneo</button>
-<button id="finish">Finalizar lote</button>
+<button id="finish">Finalizar escaneo</button>
 
 <ul id="lista"></ul>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
-let escaneadas=[], loteActual=null, scanner;
-const lista=document.getElementById('lista'), msg=document.getElementById('msg');
+let escaneadas = [];
+let scanner;
+const lista = document.getElementById('lista');
+const msg = document.getElementById('msg');
 
-document.getElementById('start').onclick=()=>{
-  scanner=new Html5Qrcode("reader");
-  scanner.start({facingMode:"environment"},{fps:10,qrbox:250},async txt=>{
-    try{
-      const id=new URL(txt).searchParams.get("id");
-      if(!id||escaneadas.includes(id))return;
+document.getElementById('start').onclick = () => {
+  escaneadas = [];
+  lista.innerHTML = "";
+  msg.textContent = "";
 
-      const r=await fetch(`/barricas/${id}`);
-      if(!r.ok){ li(`❌ Barrica ${id} no existe`,"red"); return; }
+  scanner = new Html5Qrcode("reader");
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    async txt => {
+      try {
+        const id = new URL(txt).searchParams.get("id");
+        if (!id || escaneadas.includes(id)) return;
 
-      const b=(await r.json()).barrica;
-      if(!loteActual) loteActual=b.lote;
-      if(b.lote!==loteActual){ li(`❌ Barrica ${id} no es del lote ${loteActual}`,"red"); return; }
+        const r = await fetch(`/barricas/${id}`);
+        if (!r.ok) {
+          li(`❌ Barrica ${id} no existe`, "red");
+          return;
+        }
 
-      escaneadas.push(id);
-      li(`✔ Barrica ${id} agregada`);
-    }catch{}
-  });
+        escaneadas.push(id);
+        li(`✔ Barrica ${id} escaneada`);
+      } catch {}
+    }
+  );
 };
 
-document.getElementById('finish').onclick=async()=>{
-  const r=await fetch('/lote/movimiento',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+document.getElementById('finish').onclick = async () => {
+  if (!escaneadas.length) {
+    msg.textContent = "❌ No hay barricas escaneadas";
+    msg.style.color = "red";
+    return;
+  }
+
+  const r = await fetch('/lote/movimiento', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-    barricas: escaneadas,
-    accion: accion.value,
-    operario: operario.value,
-    nave: +document.getElementById('nave').value,
-    sala: +sala.value,
-    fila: fila.value
-  })
-});
+      barricas: escaneadas,
+      accion: accion.value,
+      operario: operario.value,
+      lote: lote.value,
+      posicion: posicion.value,
+      nave: +nave.value,
+      sala: +sala.value,
+      fila: fila.value
+    })
+  });
 
-  const j=await r.json();
+  const j = await r.json();
+
   if (j.ok) {
-  msg.textContent = "✅ Movimiento aplicado correctamente";
-  msg.style.color = "green";
-} else {
-  msg.textContent = j.error || "❌ Error interno aplicando movimiento";
-  msg.style.color = "red";
-}
+    msg.textContent = "✅ Escaneo registrado correctamente";
+    msg.style.color = "green";
+  } else {
+    msg.textContent = j.error || "❌ Error interno";
+    msg.style.color = "red";
+  }
 
-
-  escaneadas=[]; loteActual=null; lista.innerHTML="";
-  if(scanner) scanner.stop();
+  escaneadas = [];
+  lista.innerHTML = "";
+  if (scanner) scanner.stop();
 };
 
-function li(t,c="black"){const e=document.createElement("li");e.textContent=t;e.style.color=c;lista.appendChild(e);}
+function li(t, c = "black") {
+  const e = document.createElement("li");
+  e.textContent = t;
+  e.style.color = c;
+  lista.appendChild(e);
+}
 </script>
 
 </body>

@@ -39,7 +39,6 @@ app.post('/barricas', async (req, res) => {
       [numero_barrica, lote, sala, fila]
     );
 
-    // Google Sheets (no rompe si falla)
     try {
       await createBarricaSheet({ numero_barrica, lote, sala, fila });
     } catch (e) {
@@ -72,17 +71,30 @@ app.get('/barricas/:id', async (req, res) => {
   }
 });
 
-/* ===== MOVIMIENTO POR LOTE ===== */
+/* ===== ESCANEO ORIGEN / DESTINO ===== */
 app.post('/lote/movimiento', async (req, res) => {
   try {
-    const { barricas, accion, operario, sala,nave, fila } = req.body;
+    const {
+      barricas,
+      accion,
+      operario,
+      lote,
+      posicion, // 👈 origen | destino
+      nave,
+      sala,
+      fila
+    } = req.body;
 
     if (!barricas || !barricas.length) {
       return res.status(400).json({ error: 'No hay barricas escaneadas' });
     }
 
+    if (!posicion || !['origen', 'destino'].includes(posicion)) {
+      return res.status(400).json({ error: 'Posición inválida' });
+    }
+
     const r = await db.query(
-      `SELECT id, numero_barrica, lote, sala, fila
+      `SELECT id, numero_barrica, sala, fila
        FROM barricas
        WHERE id = ANY($1::int[])`,
       [barricas]
@@ -92,11 +104,8 @@ app.post('/lote/movimiento', async (req, res) => {
       return res.status(400).json({ error: 'Barricas inexistentes' });
     }
 
-    const loteBase = r.rows[0].lote;
-    const validas = r.rows.filter(b => b.lote === loteBase);
-
-    for (const b of validas) {
-      // DB: histórico
+    for (const b of r.rows) {
+      /* ===== DB: histórico SIEMPRE ===== */
       await db.query(
         `INSERT INTO acciones (
           barrica_id,
@@ -113,49 +122,53 @@ app.post('/lote/movimiento', async (req, res) => {
           accion,
           operario,
           nave,
-          b.sala,
-          b.fila,
-          sala,
-          fila
+          posicion === 'origen' ? sala : b.sala,
+          posicion === 'origen' ? fila : b.fila,
+          posicion === 'destino' ? sala : null,
+          posicion === 'destino' ? fila : null
         ]
       );
 
-      // Sheets: histórico
+      /* ===== Sheets: histórico SIEMPRE ===== */
       await appendMovimientoSheet({
         numero_barrica: b.numero_barrica,
-        lote: b.lote,
+        lote,
         accion,
         operario,
         nave,
-        sala_origen: b.sala,
-        fila_origen: b.fila,
-        sala_destino: sala,
-        fila_destino: fila
+        sala_origen: posicion === 'origen' ? sala : b.sala,
+        fila_origen: posicion === 'origen' ? fila : b.fila,
+        sala_destino: posicion === 'destino' ? sala : '',
+        fila_destino: posicion === 'destino' ? fila : ''
       });
 
-      // Sheets: estado actual
-      await updateBarricaEstado({
-        numero_barrica: b.numero_barrica,
-        lote: b.lote,
-        sala,
-        fila
-      });
+      /* ===== SOLO EN DESTINO: actualizar estado ===== */
+      if (posicion === 'destino') {
+        await updateBarricaEstado({
+          numero_barrica: b.numero_barrica,
+          lote,
+          sala,
+          fila
+        });
+      }
     }
 
-    // DB: estado actual
-    await db.query(
-      `UPDATE barricas
-       SET sala=$1,
-           fila=$2,
-           updated_at=CURRENT_TIMESTAMP
-       WHERE id = ANY($3::int[])`,
-      [sala, fila, validas.map(b => b.id)]
-    );
+    /* ===== DB estado actual SOLO EN DESTINO ===== */
+    if (posicion === 'destino') {
+      await db.query(
+        `UPDATE barricas
+         SET sala=$1,
+             fila=$2,
+             updated_at=CURRENT_TIMESTAMP
+         WHERE id = ANY($3::int[])`,
+        [sala, fila, r.rows.map(b => b.id)]
+      );
+    }
 
     res.json({
       ok: true,
-      mensaje: 'Movimiento aplicado correctamente',
-      movidas: validas.length
+      mensaje: `Escaneo ${posicion} registrado correctamente`,
+      cantidad: r.rows.length
     });
 
   } catch (err) {

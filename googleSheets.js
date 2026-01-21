@@ -36,7 +36,12 @@ async function createBarricaSheet({ numero_barrica, lote, sala, fila }) {
     range: `${SHEET_BARRICAS}!A1`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
-      values: [[numero_barrica, lote, sala, fila]]
+      values: [[
+        numero_barrica, // A
+        lote,           // B
+        sala,           // C (sala actual)
+        fila            // D (fila actual)
+      ]]
     }
   });
 }
@@ -55,7 +60,7 @@ async function updateBarricaEstado({ numero_barrica, lote, sala, fila }) {
   });
 }
 
-/* ===== MOVIMIENTOS (histórico) ===== */
+/* ===== MOVIMIENTOS (histórico puro) ===== */
 async function appendMovimientoSheet(data) {
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -63,17 +68,17 @@ async function appendMovimientoSheet(data) {
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        data.numero_barrica,          // A
-        data.lote,                    // B
-        data.sala_destino,            // C (sala actual)
-        data.fila_destino,            // D (fila actual)
-        data.accion,                  // E
-        data.operario,                // F
-        data.nave || '',              // G ✅
-        data.sala_origen,             // H
-        data.fila_origen,             // I
-        data.sala_destino,            // J
-        data.fila_destino,            // K
+        data.numero_barrica,               // A
+        data.lote,                         // B
+        '',                                // C (estado actual NO VA ACA)
+        '',                                // D
+        data.accion,                       // E
+        data.operario,                     // F
+        data.nave || '',                   // G
+        data.sala_origen || '',            // H
+        data.fila_origen || '',            // I
+        data.sala_destino || '',           // J
+        data.fila_destino || '',           // K
         new Date().toLocaleString('es-AR') // L
       ]]
     }
