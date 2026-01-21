@@ -79,7 +79,7 @@ const msg = document.getElementById('msg');
 
 document.getElementById('start').onclick = () => {
   if (!lote.value) {
-    msg.textContent = "❌ Debe ingresar un lote";
+    msg.textContent = "❌ Debe ingresar un lote antes de escanear";
     msg.style.color = "red";
     return;
   }
@@ -103,16 +103,29 @@ document.getElementById('start').onclick = () => {
           return;
         }
 
+        const b = (await r.json()).barrica;
+
+        // 🔴 VALIDACIÓN DE LOTE EN TIEMPO REAL
+        if (String(b.lote) !== String(lote.value)) {
+          li(
+            `❌ Barrica ${b.numero_barrica} es del lote ${b.lote} (esperado ${lote.value})`,
+            "red"
+          );
+          return;
+        }
+
         escaneadas.push(id);
-        li(`✔ Barrica ${id} escaneada`);
-      } catch {}
+        li(`✔ Barrica ${b.numero_barrica} agregada`);
+      } catch {
+        li("❌ Error leyendo QR", "red");
+      }
     }
   );
 };
 
 document.getElementById('finish').onclick = async () => {
   if (!escaneadas.length) {
-    msg.textContent = "❌ No hay barricas escaneadas";
+    msg.textContent = "❌ No hay barricas válidas escaneadas";
     msg.style.color = "red";
     return;
   }
@@ -135,9 +148,7 @@ document.getElementById('finish').onclick = async () => {
   const j = await r.json();
 
   if (j.ok) {
-    msg.textContent =
-      `✅ ${j.cantidad} registradas` +
-      (j.rechazadas?.length ? ` | ⚠️ Rechazadas: ${j.rechazadas.join(', ')}` : '');
+    msg.textContent = `✅ ${j.cantidad} barricas registradas correctamente`;
     msg.style.color = "green";
   } else {
     msg.textContent = j.error || "❌ Error interno";
@@ -156,5 +167,6 @@ function li(t, c = "black") {
   lista.appendChild(e);
 }
 </script>
+
 </body>
 </html>
